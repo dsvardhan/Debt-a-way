@@ -11,6 +11,7 @@ const Register = ({ onRegister, onShowLogin }) => {
     try {
       await axios.post('http://localhost:5000/api/users/register', { username, email, password });
       const loginResponse = await axios.post('http://localhost:5000/api/users/login', { email, password });
+      localStorage.setItem('token', loginResponse.data.token);
       onRegister(loginResponse.data.token);
     } catch (error) {
       console.error('Registration failed:', error);

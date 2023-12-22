@@ -9,6 +9,7 @@ const Login = ({ onLogin, onShowRegister }) => {
     event.preventDefault();
     try {
       const response = await axios.post('http://localhost:5000/api/users/login', { email, password });
+      localStorage.setItem('token', response.data.token);
       onLogin(response.data.token);
     } catch (error) {
       console.error('Login failed:', error);

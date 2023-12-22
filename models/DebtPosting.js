@@ -8,7 +8,8 @@ const debtPostingSchema = new mongoose.Schema({
     //dueDate: { type: Date, required: true },
     borrower: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     lender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Initially null
-    isFulfilled: { type: Boolean, default: false }, // Indicates if the debt has been taken
+    isFulfilled: { type: Boolean, default: false }, 
+    isPaid: { type: Boolean, default: false },// Indicates if the debt has been taken
     createdAt: { type: Date, default: Date.now }
   });
   
