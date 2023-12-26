@@ -5,6 +5,7 @@ import Dashboard from './Dashboard';
 
 const App = () => {
   const [token, setToken] = useState(localStorage.getItem('token'));
+  const [user, setUser] = useState(null); // User state
   const [showLogin, setShowLogin] = useState(!token);
 
   useEffect(() => {
@@ -22,12 +23,12 @@ const App = () => {
     <div>
       {!token ? (
         showLogin ? (
-          <Login onLogin={setToken} onShowRegister={() => setShowLogin(false)} />
+          <Login onLogin={setToken} onShowRegister={() => setShowLogin(false)} setUser={setUser} />
         ) : (
-          <Register onRegister={setToken} onShowLogin={() => setShowLogin(true)} />
+          <Register onRegister={setToken} onShowLogin={() => setShowLogin(true)} setUser={setUser}/>
         )
       ) : (
-        <Dashboard token={token} onLogout={handleLogout} />
+        <Dashboard token={token} onLogout={handleLogout}  user={user} />
       )}
     </div>
   );

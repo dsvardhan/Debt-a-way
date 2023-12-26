@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const Login = ({ onLogin, onShowRegister }) => {
+const Login = ({ onLogin, onShowRegister,setUser }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  //const [walletBalance, setWalletBalance] = useState(0);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -11,6 +12,10 @@ const Login = ({ onLogin, onShowRegister }) => {
       const response = await axios.post('http://localhost:5000/api/users/login', { email, password });
       localStorage.setItem('token', response.data.token);
       onLogin(response.data.token);
+
+      setUser(response.data.user);
+      //setWalletBalance(response.data.user.walletBalance);
+      
     } catch (error) {
       console.error('Login failed:', error);
     }

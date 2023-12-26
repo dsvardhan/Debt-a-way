@@ -6,17 +6,20 @@ import { jwtDecode } from 'jwt-decode';
 
 
 
-const Dashboard = ({ token,onLogout }) => {
+const Dashboard = ({ token,onLogout,user }) => {
   const [unfulfilledDebts, setUnfulfilledDebts] = useState([]);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [debtsOwedByUser, setDebtsOwedByUser] = useState([]); // Added state
   const [debtsOwedToUser, setDebtsOwedToUser] = useState([]);
   const[debtsHistory,setDebtsHistory]=useState([]);
+  const [walletBalance, setWalletBalance] = useState();
+  //const [walletBalance2, setWalletBalance2] = useState([]);
+
  
   const decodedToken = jwtDecode(token);
   const userId = decodedToken._id;
 
-
+  
   
   const fetchUnfulfilledDebts = async () => {
     try {
@@ -53,9 +56,16 @@ const Dashboard = ({ token,onLogout }) => {
   
 
   useEffect(() => {
-    fetchDebtsSummary();
+    console.log("useEffect running with userId:", userId); // Confirm useEffect execution
     fetchUnfulfilledDebts();
-  }, [token,userId]);
+    fetchDebtsSummary();
+    
+    if (user) {
+      setWalletBalance(user.walletBalance);
+      // Initialize other user-related states if needed
+    }
+    
+  }, [token,userId,user]);
 
   
   const openModal = () => setModalIsOpen(true);
@@ -65,24 +75,26 @@ const Dashboard = ({ token,onLogout }) => {
     setUnfulfilledDebts([...unfulfilledDebts, newPosting]);
   };
 
+
   const handleLendClick = async (debtId) => {
     try {
-      // Assuming the lender is the current user, and their ID is included in the token payload
-      // You might need to adjust this based on your user authentication setup
-       // Or the appropriate field from your token payload
-      await axios.patch(`http://localhost:5000/api/debt-postings/lend/${debtId}`, 
-        { lender:userId }, 
+      const response = await axios.patch(`http://localhost:5000/api/debt-postings/lend/${debtId}`, 
+        {}, 
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
-
-      // Refresh the list of unfulfilled debts to reflect the change
+  
+      // Update local state to reflect new wallet balance
+      const updatedUser = response.data.user;
+      setWalletBalance(updatedUser.walletBalance);
+  
+      // Refresh data as needed
       fetchUnfulfilledDebts();
       fetchDebtsSummary();
     } catch (error) {
       console.error('Error lending to debt posting:', error);
     }
   };
-
+  
   const handleLogout = () => {
     // Clear the authentication data (e.g., remove the token from local storage)
     localStorage.removeItem('token');
@@ -96,29 +108,61 @@ const Dashboard = ({ token,onLogout }) => {
     window.location.href = '/login'; // Adjust the URL to your login route
   };
 
+  const handleAddToWallet = async (amount) => {
+    try {
+      const response = await axios.patch(`http://localhost:5000/api/users/update-wallet/${userId}`, 
+        { amount },
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      setWalletBalance(response.data.walletBalance);
+    } catch (error) {
+      console.error('Error updating wallet balance:', error);
+    }
+  };
+  
+  const fetchWalletBalance = async () => {
+    try {
+      const response = await axios.get(`http://localhost:5000/api/wallet-balance/${userId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      console.log("Fetched wallet balance:", response.data.walletBalance); // Confirm response
+      setWalletBalance(response.data.walletBalance);
+      console.log("Wallet balance set to:", response.data.walletBalance); // Confirm state update
+    } catch (error) {
+      console.error('Error fetching wallet balance:', error);
+    }
+  };
+
   const handlePayDebt = async (debtId) => {
     try {
       // Make an API call to mark the debt as paid or initiate the payment process
-      const response=await axios.patch(`http://localhost:5000/api/debt-postings/pay/${debtId}`, 
+      const response = await axios.patch(`http://localhost:5000/api/debt-postings/pay/${debtId}`, 
         {}, // Any required data
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
-      
-      const paidDebt = response.data;
-
-      
+  
+      const updatedDebtInfo = response.data.debtPosting;
+      const updatedUser = response.data.user;
+  
+      // Update debts owed by the user
       setDebtsOwedByUser(prev => prev.filter(debt => debt._id !== debtId));
+  
+      // Update debts owed to the user
       setDebtsOwedToUser(prev => prev.filter(debt => debt._id !== debtId));
-      setDebtsHistory(prevHistory => [...prevHistory, paidDebt]);
-      
+  
+      // Update the history with the paid debt
+      setDebtsHistory(prevHistory => [...prevHistory, updatedDebtInfo]);
+  
+      // Update wallet balance
+      setWalletBalance(updatedUser.walletBalance);
+  
       // Refresh the list of debts owed by the user
       fetchDebtsSummary();
     } catch (error) {
       console.error('Error paying debt:', error);
     }
-
-    
   };
+  
 
    // Compute debtsPaidByMe and debtsPaidToMe just before the return statement
    const debtsPaidByMe = debtsHistory.filter(debt => debt.borrower._id === userId);
@@ -132,7 +176,8 @@ const Dashboard = ({ token,onLogout }) => {
         <DebtPostingForm token={token} onClose={closeModal} onNewPosting={handleNewPosting} refreshPostings={fetchUnfulfilledDebts} />
       </ReactModal>
       <button onClick={handleLogout}>Logout</button>
-      
+      <h3>Wallet Balance: ${walletBalance}</h3>
+      <button onClick={() => handleAddToWallet(prompt("Enter amount to add:"))}>Add to Wallet</button>
       <h3>Debts Owed by Me</h3>
             <table>
                 <thead>

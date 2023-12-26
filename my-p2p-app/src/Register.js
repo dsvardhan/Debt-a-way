@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const Register = ({ onRegister, onShowLogin }) => {
+const Register = ({ onRegister, onShowLogin,setUser }) => {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,6 +13,8 @@ const Register = ({ onRegister, onShowLogin }) => {
       const loginResponse = await axios.post('http://localhost:5000/api/users/login', { email, password });
       localStorage.setItem('token', loginResponse.data.token);
       onRegister(loginResponse.data.token);
+
+      setUser(loginResponse.data.user);
     } catch (error) {
       console.error('Registration failed:', error);
     }

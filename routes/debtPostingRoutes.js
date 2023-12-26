@@ -14,27 +14,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Get all debt postings
-// router.get('/', async (req, res) => {
-//   try {
-//     const debtPostings = await DebtPosting.find({});
-//     res.send(debtPostings);
-//   } catch (error) {
-//     res.status(500).send(error.message);
-//   }
-// });
 
-// In /routes/debtPostingRoutes.js
-
-// Get all unfulfilled debt postings
-// router.get('/', async (req, res) => {
-//     try {
-//       const debtPostings = await DebtPosting.find({ isFulfilled: false });
-//       res.send(debtPostings);
-//     } catch (error) {
-//       res.status(500).send(error.message);
-//     }
-// });
 router.get('/', async (req, res) => {
   try {
     const debtPostings = await DebtPosting.find({ isFulfilled: false })
@@ -44,32 +24,6 @@ router.get('/', async (req, res) => {
     res.status(500).send(error.message);
   }
 });
-
-// Fetching debts owed by the user and their history
-// router.get('/debts-owed-by/:userId', auth, async (req, res) => {
-//   try {
-//       const activeDebts = await DebtPosting.find({ borrower: req.user._id, isFulfilled: true, isPaid: false })
-//           .populate('lender', 'username');
-//       const paidDebts = await DebtPosting.find({ borrower: req.user._id, isFulfilled: true, isPaid: true })
-//           .populate('lender', 'username');
-//       res.json({ activeDebts, paidDebts });
-//   } catch (error) {
-//       res.status(500).json({ message: error.message });
-//   }
-// });
-
-// // Fetching debts owed to the user and their history
-// router.get('/debts-owed-to/:UserId', auth, async (req, res) => {
-//   try {
-//       const activeDebts = await DebtPosting.find({ lender: req.user._id, isFulfilled: true, isPaid: false })
-//           .populate('borrower', 'username');
-//       const paidDebts = await DebtPosting.find({ lender: req.user._id, isFulfilled: true, isPaid: true })
-//           .populate('borrower', 'username');
-//       res.json({ activeDebts, paidDebts });
-//   } catch (error) {
-//       res.status(500).json({ message: error.message });
-//   }
-// });
 
 router.get('/debts-owed-by/:userId', auth,async (req, res) => {
   try {
@@ -106,67 +60,70 @@ router.get('/debts-history/:userId', auth, async (req, res) => {
   }
 });
 
-// router.get('/debts-history/:UserId', auth, async (req, res) => {
+
+
+// router.patch('/lend/:id', auth, async (req, res) => {
 //   try {
-//       const userId = req.user._id;
-//       const debtsHistory = await DebtPosting.find({
-//           $or: [{ lender: userId }, { borrower: userId }],
-//           isFulfilled: true, 
-//           isPaid: true
-//       }).populate('borrower lender', 'username');
-//       res.json(debtsHistory);
-//   } catch (error) {
-//       res.status(500).json({ message: error.message });
-//   }
-// });
+//       const debtPosting = await DebtPosting.findById(req.params.id);
 
-
-  
-// In /routes/debtPostingRoutes.js
-
-// Lend money to a debt posting
-// router.patch('/lend/:id', async (req, res) => {
-//     try {
-//       const debtPosting = await DebtPosting.findByIdAndUpdate(req.params.id, { 
-//         lender: req.body.lender, 
-//         isFulfilled: true 
-//       }, { new: true });
-  
+//       // Check if the debt posting exists
 //       if (!debtPosting) {
-//         return res.status(404).send('Debt posting not found');
+//           return res.status(404).send('Debt posting not found');
 //       }
-  
-//       res.send(debtPosting);
-//     } catch (error) {
+
+//       // Check if the user is trying to lend to their own posting
+//       if (debtPosting.borrower.toString() === req.user._id.toString()) {
+//           return res.status(400).send('Cannot lend to your own debt posting');
+//       }
+
+//       if (req.user.walletBalance < debtPosting.amount) {
+//         return res.status(400).send('Insufficient wallet balance to lend');
+//       }
+
+      
+
+
+//       // Proceed with lending
+//       debtPosting.lender = req.user._id; // Assuming req.user._id contains the lender's ID
+//       debtPosting.isFulfilled = true;
+//       await debtPosting.save();
+
+//       req.user.walletBalance -= debtPosting.amount; // Deduct amount from lender's wallet
+//       await req.user.save();
+
+//       const user = await User.findById(req.user._id);
+
+//       res.send({debtPosting,user});
+//   } catch (error) {
 //       res.status(400).send(error.message);
-//     }
+//   }
 // });
 
 router.patch('/lend/:id', auth, async (req, res) => {
   try {
       const debtPosting = await DebtPosting.findById(req.params.id);
 
-      // Check if the debt posting exists
       if (!debtPosting) {
           return res.status(404).send('Debt posting not found');
       }
 
-      // Check if the user is trying to lend to their own posting
-      if (debtPosting.borrower.toString() === req.user._id.toString()) {
-          return res.status(400).send('Cannot lend to your own debt posting');
+      if (req.user.walletBalance < debtPosting.amount) {
+          return res.status(400).send('Insufficient wallet balance to lend');
       }
 
-      // Proceed with lending
-      debtPosting.lender = req.user._id; // Assuming req.user._id contains the lender's ID
+      debtPosting.lender = req.user._id;
       debtPosting.isFulfilled = true;
       await debtPosting.save();
 
-      res.send(debtPosting);
+      req.user.walletBalance -= debtPosting.amount;
+      await req.user.save();
+
+      // Sending both the debt posting and the user's updated data
+      res.send({ debtPosting, user: req.user });
   } catch (error) {
       res.status(400).send(error.message);
   }
 });
-
 
 router.patch('/pay/:id', auth, async (req, res) => {
   try {
@@ -183,13 +140,19 @@ router.patch('/pay/:id', auth, async (req, res) => {
       if (debtPosting.borrower.toString() !== req.user._id.toString()) {
           return res.status(403).json({ message: 'You are not authorized to pay this debt.' });
       }
-
+      
+      if (debtPosting.amount > req.user.walletBalance) {
+        return res.status(400).json({ message: 'Insufficient wallet balance.' });
+      }
+      
+      req.user.walletBalance -= debtPosting.amount;
+      await req.user.save();
       // Update the debt posting to mark it as paid
       // You might want to adjust the properties based on your DebtPosting model
       debtPosting.isPaid = true; // Assuming 'isPaid' is a field in your model
       await debtPosting.save();
 
-      res.json(debtPosting);
+      res.json({debtPosting,user:req.user});
   } catch (error) {
       res.status(500).json({ message: error.message });
   }

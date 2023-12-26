@@ -2,9 +2,10 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const router = express.Router();
 const auth=require('../middleware/auth')
 
-const router = express.Router();
+//const router = express.Router();
 
 // User registration
 router.post('/register', async (req, res) => {
@@ -33,7 +34,7 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign({ _id: user._id.toString() }, process.env.JWT_SECRET);
 
     // Send response
-    res.send({ user, token });
+    res.send({ user: user.toObject({ getters: true }), token });
   } catch (error) {
     res.status(500).send(error.message);
   }
@@ -55,5 +56,58 @@ router.get('/dashboard', auth, async (req, res) => {
       res.status(500).send(error.message);
     }
 });
+
+router.patch('/update-wallet/:userId', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    const amountToAdd = parseFloat(req.body.amount);
+    if (isNaN(amountToAdd) || amountToAdd < 0) {
+      return res.status(400).send('Invalid amount');
+    }
+
+    user.walletBalance += amountToAdd; // Assuming amount is passed in the request body
+    await user.save();
+
+    res.send(user);
+  } catch (error) {
+    res.status(400).send(error.message);
+  }
+});
+
+
+// router.get('/users/:userId/wallet-balance', auth, async (req, res) => {
+//   try {
+//     const user = await User.findById(req.params.userId);
+//     if (!user) {
+//       return res.status(404).send('User not found');
+//     }
+//     res.json({ walletBalance: user.walletBalance });
+//   } catch (error) {
+//     res.status(500).send(error.message);
+//   }
+// });
+
+router.get('/wallet-balance/:userId', auth, async (req, res) => {
+  try {
+    // const userId = req.params.userId;
+    // const user = await User.findById(userId);
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+
+    // Ensure walletBalance is initialized
+    const walletBalance = user.walletBalance !== undefined ? user.walletBalance : 0;
+
+    res.json({ walletBalance });
+  } catch (error) {
+    res.status(500).send('Server error');
+  }
+});
+
   
 module.exports = router;
