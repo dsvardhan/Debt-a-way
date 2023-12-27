@@ -6,7 +6,7 @@ import { jwtDecode } from 'jwt-decode';
 
 
 
-const Dashboard = ({ token,onLogout,user }) => {
+const Dashboard = ({ token,onLogout,user,updateUser }) => {
   const [unfulfilledDebts, setUnfulfilledDebts] = useState([]);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [debtsOwedByUser, setDebtsOwedByUser] = useState([]); // Added state
@@ -23,7 +23,12 @@ const Dashboard = ({ token,onLogout,user }) => {
   const decodedToken = jwtDecode(token);
   const userId = decodedToken._id;
 
-  
+  const updateLocalUserAndBalance = (newBalance) => {
+    const updatedUser = { ...user, walletBalance: newBalance };
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    updateUser(updatedUser);
+    setWalletBalance(newBalance);
+  };
   
   const fetchUnfulfilledDebts = async () => {
     try {
@@ -60,17 +65,28 @@ const Dashboard = ({ token,onLogout,user }) => {
   
 
   useEffect(() => {
-    console.log("useEffect running with userId:", userId); // Confirm useEffect execution
-    fetchUnfulfilledDebts();
-    fetchDebtsSummary();
-    fetchTradableDebts();
+    // console.log("useEffect running with userId:", userId); // Confirm useEffect execution
+    // fetchUnfulfilledDebts();
+    // fetchDebtsSummary();
+    // fetchTradableDebts();
     
-    if (user) {
-      setWalletBalance(user.walletBalance);
-      // Initialize other user-related states if needed
-    }
-    
-  }, [token,userId,user]);
+    // if (user) {
+    //   setWalletBalance(user.walletBalance);
+    //   // Initialize other user-related states if needed
+    // }
+
+     // Fetch user data from local storage
+     const userData = localStorage.getItem('user');
+     const user = userData ? JSON.parse(userData) : null;
+ 
+     fetchUnfulfilledDebts();
+     fetchDebtsSummary();
+     fetchTradableDebts();
+ 
+     if (user) {
+       setWalletBalance(user.walletBalance);
+     }
+  }, [token,userId]);
 
   
   const openModal = () => setModalIsOpen(true);
@@ -80,21 +96,25 @@ const Dashboard = ({ token,onLogout,user }) => {
     setUnfulfilledDebts([...unfulfilledDebts, newPosting]);
   };
 
-
+//Lend working
   const handleLendClick = async (debtId) => {
     try {
       const response = await axios.patch(`http://localhost:5000/api/debt-postings/lend/${debtId}`, 
         {}, 
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
+
+      fetchUnfulfilledDebts();
+      fetchDebtsSummary();
   
       // Update local state to reflect new wallet balance
       const updatedUser = response.data.user;
       setWalletBalance(updatedUser.walletBalance);
-  
+      updateLocalUserAndBalance(updatedUser.walletBalance);
+
       // Refresh data as needed
-      fetchUnfulfilledDebts();
-      fetchDebtsSummary();
+      //fetchUnfulfilledDebts();
+      //fetchDebtsSummary();
     } catch (error) {
       console.error('Error lending to debt posting:', error);
     }
@@ -103,6 +123,7 @@ const Dashboard = ({ token,onLogout,user }) => {
   const handleLogout = () => {
     // Clear the authentication data (e.g., remove the token from local storage)
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
 
     // Call the onLogout prop if it exists to handle any additional cleanup
     if (onLogout) {
@@ -113,6 +134,7 @@ const Dashboard = ({ token,onLogout,user }) => {
     window.location.href = '/login'; // Adjust the URL to your login route
   };
 
+  //Add to wallet working
   const handleAddToWallet = async (amount) => {
     try {
       const response = await axios.patch(`http://localhost:5000/api/users/update-wallet/${userId}`, 
@@ -120,6 +142,8 @@ const Dashboard = ({ token,onLogout,user }) => {
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
       setWalletBalance(response.data.walletBalance);
+      updateLocalUserAndBalance(response.data.walletBalance);
+      // setWalletBalance(response.data.walletBalance);
     } catch (error) {
       console.error('Error updating wallet balance:', error);
     }
@@ -138,6 +162,7 @@ const Dashboard = ({ token,onLogout,user }) => {
     }
   };
 
+  //Pay working
   const handlePayDebt = async (debtId) => {
     try {
       // Make an API call to mark the debt as paid or initiate the payment process
@@ -148,7 +173,8 @@ const Dashboard = ({ token,onLogout,user }) => {
   
       const updatedDebtInfo = response.data.debtPosting;
       const updatedUser = response.data.user;
-  
+      // updateLocalUserAndBalance(updatedUser.walletBalance);
+      //updateLocalUserAndBalance(response.data.walletBalance);
       // Update debts owed by the user
       setDebtsOwedByUser(prev => prev.filter(debt => debt._id !== debtId));
   
@@ -163,6 +189,8 @@ const Dashboard = ({ token,onLogout,user }) => {
   
       // Refresh the list of debts owed by the user
       fetchDebtsSummary();
+
+      updateLocalUserAndBalance(updatedUser.walletBalance);
     } catch (error) {
       console.error('Error paying debt:', error);
     }
@@ -189,6 +217,7 @@ const Dashboard = ({ token,onLogout,user }) => {
       handleCloseTradeModal();
       fetchDebtsSummary(); // Refresh the debts list
       fetchTradableDebts();
+      //updateLocalUserAndBalance(response.data.walletBalance);
     } catch (error) {
       console.error('Error trading debt:', error);
     }
@@ -205,6 +234,7 @@ const Dashboard = ({ token,onLogout,user }) => {
     }
   };
 
+  //Buy Working
   const handleBuyDebt = async (debtId, tradePrice) => {
     try {
       const response = await axios.patch(
@@ -213,17 +243,35 @@ const Dashboard = ({ token,onLogout,user }) => {
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
 
-      // Update local state to reflect changes
-      // This could involve removing the bought debt from `tradableDebts`
-      // and updating the `walletBalance` if the user's balance is affected
-      setTradableDebts(prevDebts => prevDebts.filter(debt => debt._id !== debtId));
-      if (response.data.user) {
-        setWalletBalance(response.data.user.walletBalance);
-      }
 
+      setTradableDebts(prevDebts => prevDebts.filter(debt => debt._id !== debtId));
+      // if (response.data.user) {
+      //   setWalletBalance(response.data.user.walletBalance);
+      //   updateLocalUserAndBalance(response.data.user.walletBalance);
+      // }
+
+      setWalletBalance(response.data.buyer.walletBalance);
       // Refresh other relevant data if necessary
       fetchTradableDebts();
       fetchDebtsSummary();
+
+      if (response.data.buyer) {
+        // setWalletBalance(response.data.buyer.walletBalance);
+        updateLocalUserAndBalance(response.data.buyer.walletBalance);
+      }
+
+      // Update local state to reflect changes
+      // This could involve removing the bought debt from `tradableDebts`
+      // and updating the `walletBalance` if the user's balance is affected
+      // setTradableDebts(prevDebts => prevDebts.filter(debt => debt._id !== debtId));
+      // // if (response.data.user) {
+      // //   setWalletBalance(response.data.user.walletBalance);
+      // //   updateLocalUserAndBalance(response.data.user.walletBalance);
+      // // }
+
+      // // Refresh other relevant data if necessary
+      // fetchTradableDebts();
+      // fetchDebtsSummary();
     } catch (error) {
       console.error('Error buying debt:', error);
     }

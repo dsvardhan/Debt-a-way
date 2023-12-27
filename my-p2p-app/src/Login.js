@@ -11,9 +11,14 @@ const Login = ({ onLogin, onShowRegister,setUser }) => {
     try {
       const response = await axios.post('http://localhost:5000/api/users/login', { email, password });
       localStorage.setItem('token', response.data.token);
+
+      const user = response.data.user;
+      localStorage.setItem('user', JSON.stringify(user));
+      setUser(user);
+
       onLogin(response.data.token);
 
-      setUser(response.data.user);
+      //setUser(response.data.user);
       //setWalletBalance(response.data.user.walletBalance);
       
     } catch (error) {

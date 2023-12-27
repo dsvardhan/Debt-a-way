@@ -12,6 +12,13 @@ const Register = ({ onRegister, onShowLogin,setUser }) => {
       await axios.post('http://localhost:5000/api/users/register', { username, email, password });
       const loginResponse = await axios.post('http://localhost:5000/api/users/login', { email, password });
       localStorage.setItem('token', loginResponse.data.token);
+      
+      // Persist user data in local storage
+      const user = loginResponse.data.user;
+      localStorage.setItem('user', JSON.stringify(user));
+      setUser(user);
+      
+      
       onRegister(loginResponse.data.token);
 
       setUser(loginResponse.data.user);

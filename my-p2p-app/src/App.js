@@ -11,11 +11,17 @@ const App = () => {
   useEffect(() => {
     // Update showLogin based on token presence
     setShowLogin(!token);
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
   }, [token]);
 
   const handleLogout = () => {
     setToken(null);
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
     // Additional cleanup if needed
   };
 
