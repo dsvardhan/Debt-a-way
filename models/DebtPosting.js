@@ -10,7 +10,10 @@ const debtPostingSchema = new mongoose.Schema({
     lender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Initially null
     isFulfilled: { type: Boolean, default: false }, 
     isPaid: { type: Boolean, default: false },// Indicates if the debt has been taken
-    createdAt: { type: Date, default: Date.now }
+    createdAt: { type: Date, default: Date.now },
+    isTradable: { type: Boolean, default: false },
+    tradePrice: { type: Number,default:null }
+
   });
   
   module.exports = mongoose.model('DebtPosting', debtPostingSchema);

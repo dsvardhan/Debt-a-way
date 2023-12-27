@@ -15,6 +15,10 @@ const Dashboard = ({ token,onLogout,user }) => {
   const [walletBalance, setWalletBalance] = useState();
   //const [walletBalance2, setWalletBalance2] = useState([]);
 
+  const [isTradeModalOpen, setIsTradeModalOpen] = useState(false);
+  const [selectedDebtForTrade, setSelectedDebtForTrade] = useState(null);
+  const [tradePrice, setTradePrice] = useState('');
+  const [tradableDebts, setTradableDebts] = useState([]);
  
   const decodedToken = jwtDecode(token);
   const userId = decodedToken._id;
@@ -59,6 +63,7 @@ const Dashboard = ({ token,onLogout,user }) => {
     console.log("useEffect running with userId:", userId); // Confirm useEffect execution
     fetchUnfulfilledDebts();
     fetchDebtsSummary();
+    fetchTradableDebts();
     
     if (user) {
       setWalletBalance(user.walletBalance);
@@ -164,6 +169,67 @@ const Dashboard = ({ token,onLogout,user }) => {
   };
   
 
+  const handleOpenTradeModal = (debtId) => {
+    setSelectedDebtForTrade(debtId);
+    setIsTradeModalOpen(true);
+  };
+
+  const handleCloseTradeModal = () => {
+    setIsTradeModalOpen(false);
+    setSelectedDebtForTrade(null);
+    setTradePrice('');
+  };
+
+  const handleTradeDebt = async () => {
+    try {
+      await axios.patch(`http://localhost:5000/api/debt-postings/trade-debt/${selectedDebtForTrade}`, 
+        { tradePrice }, 
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      handleCloseTradeModal();
+      fetchDebtsSummary(); // Refresh the debts list
+      fetchTradableDebts();
+    } catch (error) {
+      console.error('Error trading debt:', error);
+    }
+  };
+
+  const fetchTradableDebts = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/debt-postings/tradable-debts', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      setTradableDebts(response.data); // Make sure this line correctly sets the state
+    } catch (error) {
+      console.error('Error fetching tradable debts:', error);
+    }
+  };
+
+  const handleBuyDebt = async (debtId, tradePrice) => {
+    try {
+      const response = await axios.patch(
+        `http://localhost:5000/api/debt-postings/buy-debt/${debtId}`,
+        {},  // Additional data can be sent if needed
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+
+      // Update local state to reflect changes
+      // This could involve removing the bought debt from `tradableDebts`
+      // and updating the `walletBalance` if the user's balance is affected
+      setTradableDebts(prevDebts => prevDebts.filter(debt => debt._id !== debtId));
+      if (response.data.user) {
+        setWalletBalance(response.data.user.walletBalance);
+      }
+
+      // Refresh other relevant data if necessary
+      fetchTradableDebts();
+      fetchDebtsSummary();
+    } catch (error) {
+      console.error('Error buying debt:', error);
+    }
+  };
+
+
    // Compute debtsPaidByMe and debtsPaidToMe just before the return statement
    const debtsPaidByMe = debtsHistory.filter(debt => debt.borrower._id === userId);
    const debtsPaidToMe = debtsHistory.filter(debt => debt.lender._id === userId);
@@ -175,6 +241,20 @@ const Dashboard = ({ token,onLogout,user }) => {
       <ReactModal isOpen={modalIsOpen} onRequestClose={closeModal}>
         <DebtPostingForm token={token} onClose={closeModal} onNewPosting={handleNewPosting} refreshPostings={fetchUnfulfilledDebts} />
       </ReactModal>
+
+      <ReactModal isOpen={isTradeModalOpen} onRequestClose={handleCloseTradeModal}>
+        <h4>Set Trade Price</h4>
+        <input
+          type="number"
+          value={tradePrice}
+          onChange={(e) => setTradePrice(e.target.value)}
+          placeholder="Trade Price"
+        />
+        <button onClick={handleTradeDebt}>Confirm Trade</button>
+        <button onClick={handleCloseTradeModal}>Cancel</button>
+      </ReactModal>
+
+
       <button onClick={handleLogout}>Logout</button>
       <h3>Wallet Balance: ${walletBalance}</h3>
       <button onClick={() => handleAddToWallet(prompt("Enter amount to add:"))}>Add to Wallet</button>
@@ -216,6 +296,9 @@ const Dashboard = ({ token,onLogout,user }) => {
                             <td>{debt.borrower.username}</td> {/* Adjust as per your data structure */}
                             <td>{debt.amount}</td>
                             <td>{debt.interestRate}%</td>
+                            <td>
+                              <button onClick={() => handleOpenTradeModal(debt._id)}>Trade Debt</button>
+                            </td>
                         </tr>
 
 
@@ -253,6 +336,31 @@ const Dashboard = ({ token,onLogout,user }) => {
         <p>No unfulfilled debt postings available.</p>
       )}
 
+<h3>Tradable Debt Postings</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Borrower</th>
+            <th>Amount</th>
+            <th>Interest Rate</th>
+            <th>Trade Price</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tradableDebts.map(debt => (
+            <tr key={debt._id}>
+              <td>{debt.borrower.username}</td>
+              <td>{debt.amount}</td>
+              <td>{debt.interestRate}%</td>
+              <td>{debt.tradePrice}</td>
+              <td>
+                <button onClick={() => handleBuyDebt(debt._id)}>Buy</button>
+              </td>
+            </tr>
+          ))}
+         </tbody>
+      </table>
 
 <h3>Debt History</h3>
       

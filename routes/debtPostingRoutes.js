@@ -2,6 +2,8 @@ const express = require('express');
 const DebtPosting = require('../models/DebtPosting');
 const router = express.Router();
 const auth = require('../middleware/auth');
+const User = require('../models/User'); // Or the correct path to your User model
+
 
 // Post a new debt
 router.post('/', async (req, res) => {
@@ -158,5 +160,80 @@ router.patch('/pay/:id', auth, async (req, res) => {
   }
 });
 
-  
+
+router.patch('/trade-debt/:id', auth, async (req, res) => {
+  try {
+    const debtPosting = await DebtPosting.findById(req.params.id);
+    if (!debtPosting) {
+      return res.status(404).send('Debt posting not found');
+    }
+    if (debtPosting.lender.toString() !== req.user._id.toString()) {
+      return res.status(403).send('Only the lender can trade this debt');
+    }
+    debtPosting.isTradable = true;
+    debtPosting.tradePrice = req.body.tradePrice;
+    await debtPosting.save();
+    res.send(debtPosting);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+router.get('/tradable-debts', async (req, res) => {
+  try {
+    const tradableDebts = await DebtPosting.find({ isTradable: true }).populate('borrower lender', 'username');
+    res.send(tradableDebts);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+// In your debtPostingRoutes.js or similar file
+router.patch('/buy-debt/:debtId', auth, async (req, res) => {
+  try {
+    const debtId = req.params.debtId;
+    const newLenderId = req.user._id; // The current user is the buyer
+
+    const debtPosting = await DebtPosting.findById(debtId).populate('lender');
+
+    if (!debtPosting) {
+      return res.status(404).send('Debt posting not found');
+    }
+
+    if (!debtPosting.isTradable) {
+      return res.status(400).send('This debt is not available for trading');
+    }
+
+    // Ensure the buyer is not the borrower
+    if (debtPosting.borrower.equals(newLenderId)) {
+      return res.status(400).send('Cannot buy your own debt');
+    }
+
+    const buyer = await User.findById(newLenderId);
+    const seller = debtPosting.lender;
+
+    // Check if the buyer has enough balance
+    if (buyer.walletBalance < debtPosting.tradePrice) {
+      return res.status(400).send('Insufficient balance to buy this debt');
+    }
+
+    // Update balances
+    buyer.walletBalance -= debtPosting.tradePrice;
+    seller.walletBalance += debtPosting.tradePrice;
+
+    // Update the lender of the debt posting
+    debtPosting.lender = newLenderId;
+    debtPosting.isTradable = false; // Make the debt non-tradable after purchase
+
+    await buyer.save();
+    await seller.save();
+    await debtPosting.save();
+
+    res.json({ debtPosting, buyer, seller });
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
+
+
 module.exports = router;
