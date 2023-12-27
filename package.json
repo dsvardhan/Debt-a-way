@@ -2,12 +2,11 @@
   "name": "p2p",
   "version": "1.0.0",
   "description": "A peer to peer lending app side project ",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start":"node app.js"
   },
-  "author": "",
+  "author": "Srinivas Vardhan Dintakurthi",
   "license": "ISC",
   "dependencies": {
     "bcryptjs": "^2.4.3",
