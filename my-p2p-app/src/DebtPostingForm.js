@@ -9,7 +9,7 @@ const DebtPostingForm = ({ token, onClose, onNewPosting,refreshPostings }) => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
-      const response = await axios.post('http://localhost:5000/api/debt-postings',
+      const response = await axios.post('https://debt-a-way.onrender.com/api/debt-postings',
         { amount, interestRate /*, other fields*/ },
         { headers: { 'Authorization': `Bearer ${token}` } }
       );

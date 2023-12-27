@@ -9,7 +9,7 @@ const Login = ({ onLogin, onShowRegister,setUser }) => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
-      const response = await axios.post('http://localhost:5000/api/users/login', { email, password });
+      const response = await axios.post('https://debt-a-way.onrender.com/api/users/login', { email, password });
       localStorage.setItem('token', response.data.token);
 
       const user = response.data.user;
