@@ -1,0 +1,95 @@
+.login-section{
+    background-color: white;
+    width: 30rem;
+    height: 35rem;
+    position: absolute;
+    top: 19%;
+    left: 33%;
+    align-items: center;
+    border-radius: 1rem;
+    border-color: white;
+}
+
+.login-container{
+    position: absolute;
+    top: 20%;
+    left: 12%;
+}
+
+.login-header{
+    text-align: center;
+    position:relative;
+    top: -9rem;
+    font-size: 4rem;
+    font-weight: 700;
+    color: rgb(62, 176, 77);
+}
+.subtext{
+    position: absolute;
+    margin-top: -12rem;
+    margin-left: 0.3rem;
+    color: black;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.login-flex{
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    margin-top: -4.5rem;
+}
+
+.email-box{
+    margin-top: -3rem;
+    height: 2.5rem;
+    margin-bottom: 2rem;
+    font-size: 1.5rem;
+    padding-left: 0.4rem;
+}
+
+.password-box{
+    height: 2.5rem;
+    margin-bottom: 3rem;
+    font-size: 1.5rem;
+    padding-left: 0.4rem;
+}
+
+
+.login-button{
+    height: 3.5rem;
+    width: 20rem;
+    align-self: center;
+    margin-bottom: 2.5rem;
+    font-size: 1.8rem;
+    font-weight: 800;
+    text-align: center;
+    border-radius: 2rem;
+    background-color: black;
+    color: white;
+}
+.login-button:hover{
+    color: rgb(62, 176, 77);
+}
+.login-button:active{
+    color: white;
+}
+
+.register-button{
+    height: 3.5rem;
+    width: 20rem;
+    align-self: center;
+    font-size: 1.8rem;
+    font-weight: 800;
+    text-align: center;
+    border-radius: 2rem;
+    background-color: black;
+    color: white;
+    margin-bottom: 2.5rem;
+}
+.register-button:hover{
+    color: rgb(62, 176, 77);
+}
+.register-button:active{
+    color: white
+}

@@ -9,8 +9,8 @@ const Register = ({ onRegister, onShowLogin,setUser }) => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
-      await axios.post('https://debt-a-way.onrender.com/api/users/register', { username, email, password });
-      const loginResponse = await axios.post('https://debt-a-way.onrender.com/api/users/login', { email, password });
+      await axios.post('https://localhost:5001/api/users/register', { username, email, password });
+      const loginResponse = await axios.post('https://localhost:5001/api/users/login', { email, password });
       localStorage.setItem('token', loginResponse.data.token);
       
       // Persist user data in local storage

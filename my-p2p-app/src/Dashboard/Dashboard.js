@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import ReactModal from 'react-modal';
-import DebtPostingForm from './DebtPostingForm';
+import DebtPostingForm from '../DebtPostingForm';
 import { jwtDecode } from 'jwt-decode';
 
 
@@ -32,7 +32,7 @@ const Dashboard = ({ token,onLogout,user,updateUser }) => {
   
   const fetchUnfulfilledDebts = async () => {
     try {
-      const response = await axios.get('https://debt-a-way.onrender.com/api/debt-postings', {
+      const response = await axios.get('https://localhost:5001/api/debt-postings', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       setUnfulfilledDebts(response.data);
@@ -43,19 +43,19 @@ const Dashboard = ({ token,onLogout,user,updateUser }) => {
 
   const fetchDebtsSummary = async () => {
     try {
-        const debtsOwedResponse = await axios.get(`https://debt-a-way.onrender.com/api/debt-postings/debts-owed-by/${userId}`, {
+        const debtsOwedResponse = await axios.get(`https://localhost:5001/api/debt-postings/debts-owed-by/${userId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         setDebtsOwedByUser(debtsOwedResponse.data);
         //setDebtsOwedByUserHistory(debtsOwedResponse.data.paidDebts);
   
-        const debtsToReceiveResponse = await axios.get(`https://debt-a-way.onrender.com/api/debt-postings/debts-owed-to/${userId}`, {
+        const debtsToReceiveResponse = await axios.get(`https://localhost:5001/api/debt-postings/debts-owed-to/${userId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         setDebtsOwedToUser(debtsToReceiveResponse.data);
         //setDebtsOwedToUserHistory(debtsOwedResponse.data.paidDebts);
 
-        const debtsHistoryResponse = await axios.get(`https://debt-a-way.onrender.com/api/debt-postings/debts-history/${userId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const debtsHistoryResponse = await axios.get(`https://localhost:5001/api/debt-postings/debts-history/${userId}`, { headers: { 'Authorization': `Bearer ${token}` } });
         setDebtsHistory(debtsHistoryResponse.data);
 
     } catch (error) {
@@ -99,7 +99,7 @@ const Dashboard = ({ token,onLogout,user,updateUser }) => {
 //Lend working
   const handleLendClick = async (debtId) => {
     try {
-      const response = await axios.patch(`https://debt-a-way.onrender.com/api/debt-postings/lend/${debtId}`, 
+      const response = await axios.patch(`https://localhost:5001/api/debt-postings/lend/${debtId}`, 
         {}, 
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
@@ -137,7 +137,7 @@ const Dashboard = ({ token,onLogout,user,updateUser }) => {
   //Add to wallet working
   const handleAddToWallet = async (amount) => {
     try {
-      const response = await axios.patch(`https://debt-a-way.onrender.com/api/users/update-wallet/${userId}`, 
+      const response = await axios.patch(`https://localhost:5001/api/users/update-wallet/${userId}`, 
         { amount },
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
@@ -151,7 +151,7 @@ const Dashboard = ({ token,onLogout,user,updateUser }) => {
   
   const fetchWalletBalance = async () => {
     try {
-      const response = await axios.get(`https://debt-a-way.onrender.com/api/wallet-balance/${userId}`, {
+      const response = await axios.get(`https://localhost:5001/api/wallet-balance/${userId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       console.log("Fetched wallet balance:", response.data.walletBalance); // Confirm response
@@ -166,7 +166,7 @@ const Dashboard = ({ token,onLogout,user,updateUser }) => {
   const handlePayDebt = async (debtId) => {
     try {
       // Make an API call to mark the debt as paid or initiate the payment process
-      const response = await axios.patch(`https://debt-a-way.onrender.com/api/debt-postings/pay/${debtId}`, 
+      const response = await axios.patch(`https://localhost:5001/api/debt-postings/pay/${debtId}`, 
         {}, // Any required data
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
@@ -210,7 +210,7 @@ const Dashboard = ({ token,onLogout,user,updateUser }) => {
 
   const handleTradeDebt = async () => {
     try {
-      await axios.patch(`https://debt-a-way.onrender.com/api/debt-postings/trade-debt/${selectedDebtForTrade}`, 
+      await axios.patch(`https://localhost:5001/api/debt-postings/trade-debt/${selectedDebtForTrade}`, 
         { tradePrice }, 
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
@@ -225,7 +225,7 @@ const Dashboard = ({ token,onLogout,user,updateUser }) => {
 
   const fetchTradableDebts = async () => {
     try {
-      const response = await axios.get('https://debt-a-way.onrender.com/api/debt-postings/tradable-debts', {
+      const response = await axios.get('https://localhost:5001/api/debt-postings/tradable-debts', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       setTradableDebts(response.data); // Make sure this line correctly sets the state
@@ -238,7 +238,7 @@ const Dashboard = ({ token,onLogout,user,updateUser }) => {
   const handleBuyDebt = async (debtId, tradePrice) => {
     try {
       const response = await axios.patch(
-        `https://debt-a-way.onrender.com/api/debt-postings/buy-debt/${debtId}`,
+        `https:localhost:5001/api/debt-postings/buy-debt/${debtId}`,
         {},  // Additional data can be sent if needed
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
