@@ -31,7 +31,7 @@ const Login = ({ onLogin, onShowRegister,setUser }) => {
     <section className='login-section'>
       <form className="login-container" onSubmit={handleSubmit}>
         <h1 className='login-header'>Debt-a-Way!</h1>
-        <p className="subtext" >Log in or Register.</p>
+        <p className="login-subtext" >Log in or Register.</p>
         <div className='login-flex'>
         <input className="email-box" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" />
         <input className="password-box" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" />

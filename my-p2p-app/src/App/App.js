@@ -32,7 +32,7 @@ const App = () => {
         showLogin ? (
           <><NavBar /><Login onLogin={setToken} onShowRegister={() => setShowLogin(false)} setUser={setUser} /></>
         ) : (
-          <Register onRegister={setToken} onShowLogin={() => setShowLogin(true)} setUser={setUser}/>
+          <><NavBar /><Register onRegister={setToken} onShowLogin={() => setShowLogin(true)} setUser={setUser}/></>
         )
       ) : (
         <Dashboard token={token} onLogout={handleLogout}  user={user} />
