@@ -28,5 +28,5 @@ app.use('/api/debt-postings', authMiddleware, debtPostingRoutes);
 
 // Start the server
 app.listen(port, () => {
-  console.log(`Server running at https://debt-a-way.onrender.com/`);
+  console.log(`Server running at https://debt-a-way.onrender.com/ `);
 });

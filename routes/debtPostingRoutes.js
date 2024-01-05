@@ -101,12 +101,43 @@ router.get('/debts-history/:userId', auth, async (req, res) => {
 //   }
 // });
 
+// router.patch('/lend/:id', auth, async (req, res) => {
+//   try {
+//       const debtPosting = await DebtPosting.findById(req.params.id);
+
+//       if (!debtPosting) {
+//           return res.status(404).send('Debt posting not found');
+//       }
+
+//       if (req.user.walletBalance < debtPosting.amount) {
+//           return res.status(400).send('Insufficient wallet balance to lend');
+//       }
+
+//       debtPosting.lender = req.user._id;
+//       debtPosting.isFulfilled = true;
+//       await debtPosting.save();
+
+//       req.user.walletBalance -= debtPosting.amount;
+//       await req.user.save();
+
+//       // Sending both the debt posting and the user's updated data
+//       res.send({ debtPosting, user: req.user });
+//   } catch (error) {
+//       res.status(400).send(error.message);
+//   }
+// });
+
 router.patch('/lend/:id', auth, async (req, res) => {
   try {
       const debtPosting = await DebtPosting.findById(req.params.id);
 
       if (!debtPosting) {
           return res.status(404).send('Debt posting not found');
+      }
+
+      // Check if the user is trying to lend to themselves
+      if (debtPosting.borrower.toString() === req.user._id.toString()) {
+          return res.status(400).send('You cannot lend to yourself');
       }
 
       if (req.user.walletBalance < debtPosting.amount) {
@@ -126,6 +157,7 @@ router.patch('/lend/:id', auth, async (req, res) => {
       res.status(400).send(error.message);
   }
 });
+
 
 router.patch('/pay/:id', auth, async (req, res) => {
   try {
