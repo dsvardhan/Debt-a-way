@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import Login from './Login';
-import Register from './Register';
-import Dashboard from './Dashboard';
+import Login from '../Login/Login';
+import Register from '../Register/Register';
+import Dashboard from '../Dashboard/Dashboard';
+import NavBar from '../NavBar/NavBar';
 
 const App = () => {
   const [token, setToken] = useState(localStorage.getItem('token'));
@@ -29,9 +30,9 @@ const App = () => {
     <div>
       {!token ? (
         showLogin ? (
-          <Login onLogin={setToken} onShowRegister={() => setShowLogin(false)} setUser={setUser} />
+          <><NavBar /><Login onLogin={setToken} onShowRegister={() => setShowLogin(false)} setUser={setUser} /></>
         ) : (
-          <Register onRegister={setToken} onShowLogin={() => setShowLogin(true)} setUser={setUser}/>
+          <><NavBar /><Register onRegister={setToken} onShowLogin={() => setShowLogin(true)} setUser={setUser}/></>
         )
       ) : (
         <Dashboard token={token} onLogout={handleLogout}  user={user} />
