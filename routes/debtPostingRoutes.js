@@ -241,6 +241,10 @@ router.patch('/buy-debt/:debtId', auth, async (req, res) => {
       return res.status(400).send('Cannot buy your own debt');
     }
 
+    if (debtPosting.lender.equals(newLenderId)) {
+      return res.status(400).send('Cannot buy the debt you wish to trade');
+    }
+
     const buyer = await User.findById(newLenderId);
     const seller = debtPosting.lender;
 
