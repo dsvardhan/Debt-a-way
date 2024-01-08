@@ -3,7 +3,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const router = express.Router();
-const auth=require('../middleware/auth') 
+const auth=require('../middleware/auth');
+const TransactionLog = require('../models/TransactionLog'); 
 
 //const router = express.Router();
 
@@ -71,6 +72,15 @@ router.patch('/update-wallet/:userId', auth, async (req, res) => {
 
     user.walletBalance += amountToAdd; // Assuming amount is passed in the request body
     await user.save();
+
+    // Log for adding money (credit)
+    const addLog = new TransactionLog({
+      userId: req.user._id, // User's ID
+      transactionType: 'add',
+      transactionDirection: 'credit',
+      amount: amountToAdd // The amount added to the wallet
+    });
+    await addLog.save();
 
     res.send(user);
   } catch (error) {

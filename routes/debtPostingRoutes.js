@@ -3,6 +3,7 @@ const DebtPosting = require('../models/DebtPosting');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const User = require('../models/User'); // Or the correct path to your User model
+const TransactionLog = require('../models/TransactionLog'); // Update the path as necessary
 
 
 // Post a new debt
@@ -148,8 +149,30 @@ router.patch('/lend/:id', auth, async (req, res) => {
       debtPosting.isFulfilled = true;
       await debtPosting.save();
 
+      // Log for lender (debit)
+      const lenderLog = new TransactionLog({
+        userId: req.user._id, // Lender's ID
+        receiverId: debtPosting.borrower, // Borrower's ID
+        transactionType: 'lend',
+        transactionDirection: 'debit',
+        amount: debtPosting.amount
+      });
+      await lenderLog.save();
+
+      // Log for borrower (credit)
+      const borrowerLog = new TransactionLog({
+        userId: debtPosting.borrower, // Borrower's ID
+        receiverId: req.user._id, // Lender's ID
+        transactionType: 'lend',
+        transactionDirection: 'credit',
+        amount: debtPosting.amount
+      });
+      await borrowerLog.save();
+
       req.user.walletBalance -= debtPosting.amount;
       await req.user.save();
+
+
 
       // Sending both the debt posting and the user's updated data
       res.send({ debtPosting, user: req.user });
@@ -185,6 +208,26 @@ router.patch('/pay/:id', auth, async (req, res) => {
       // You might want to adjust the properties based on your DebtPosting model
       debtPosting.isPaid = true; // Assuming 'isPaid' is a field in your model
       await debtPosting.save();
+
+      // Log for payer (debit)
+      const payerLog = new TransactionLog({
+        userId: req.user._id, // Payer's ID
+        receiverId: debtPosting.lender, // Lender's ID
+        transactionType: 'pay',
+        transactionDirection: 'debit',
+        amount: debtPosting.amount
+      });
+      await payerLog.save();
+
+      // Log for receiver (credit)
+      const receiverLog = new TransactionLog({
+        userId: debtPosting.lender, // Lender's ID
+        receiverId: req.user._id, // Payer's ID
+        transactionType: 'pay',
+        transactionDirection: 'credit',
+        amount: debtPosting.amount
+      });
+      await receiverLog.save();
 
       res.json({debtPosting,user:req.user});
   } catch (error) {
@@ -265,9 +308,43 @@ router.patch('/buy-debt/:debtId', auth, async (req, res) => {
     await seller.save();
     await debtPosting.save();
 
+    // Log for seller (credit)
+      const sellerLog = new TransactionLog({
+        userId: debtPosting.lender, // Original lender's ID
+        receiverId: newLenderId, // New lender's ID
+        transactionType: 'trade',
+        transactionDirection: 'credit',
+        amount: debtPosting.tradePrice
+      });
+      await sellerLog.save();
+
+      // Log for buyer (debit)
+      const buyerLog = new TransactionLog({
+        userId: newLenderId, // New lender's ID
+        receiverId: debtPosting.lender, // Original lender's ID
+        transactionType: 'trade',
+        transactionDirection: 'debit',
+        amount: debtPosting.tradePrice
+      });
+      await buyerLog.save();
+
     res.json({ debtPosting, buyer, seller });
   } catch (error) {
     res.status(500).send(error.message);
+  }
+});
+
+
+// Fetch transaction logs for the logged-in user
+router.get('/transaction-logs', auth, async (req, res) => {
+  try {
+    const transactionLogs = await TransactionLog.find({ userId: req.user._id })
+      .populate('receiverId', 'username') // Populate with necessary fields from the User model
+      .sort({ createdAt: -1 }); // Assuming you have a createdAt field for sorting
+
+    res.json(transactionLogs);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 
