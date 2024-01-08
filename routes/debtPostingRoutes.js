@@ -341,7 +341,7 @@ router.patch('/buy-debt/:debtId', auth, async (req, res) => {
 //     res.status(500).json({ message: error.message });
 //   }
 // });
-router.get('/transaction-logs', auth, async (req, res) => {
+//router.get('/transaction-logs', auth, async (req, res) => {
   // try {
   //   const transactionLogs = await TransactionLog.find({ userId: req.user._id })
   //     .populate('receiverId', 'username') // Adjust the fields based on your User model
@@ -360,27 +360,59 @@ router.get('/transaction-logs', auth, async (req, res) => {
   // }
 
 
+//   try {
+//     // Fetching logs where the user is either the initiator or the receiver
+//     const transactionLogs = await TransactionLog.find({
+//       $or: [{ userId: req.user._id }, { receiverId: req.user._id }]
+//     })
+//     .populate('userId receiverId', 'username') // Adjust fields based on your User model
+//     .sort({ date: -1 });
+
+//     // Format logs for a more user-friendly output
+//     const formattedLogs = transactionLogs.map(log => {
+//       let otherParty = log.userId.toString() === req.user._id.toString() ?
+//                        (log.receiverId ? log.receiverId.username : 'N/A') :
+//                        log.userId.username;
+
+//       // Determine the direction for the user
+//       let direction = log.userId.toString() === req.user._id.toString() ? log.direction : (log.direction === 'credit' ? 'debit' : 'credit');
+
+//       return {
+//         date: log.date,
+//         amount: log.amount,
+//         type: log.type,
+//         direction: direction,
+//         otherParty: otherParty
+//       };
+//     });
+
+//     res.json(formattedLogs);
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// });
+
+router.get('/transaction-logs', auth, async (req, res) => {
   try {
-    // Fetching logs where the user is either the initiator or the receiver
     const transactionLogs = await TransactionLog.find({
       $or: [{ userId: req.user._id }, { receiverId: req.user._id }]
     })
-    .populate('userId receiverId', 'username') // Adjust fields based on your User model
+    .populate('userId receiverId', 'username') // Ensure these fields match your User model
     .sort({ date: -1 });
 
-    // Format logs for a more user-friendly output
     const formattedLogs = transactionLogs.map(log => {
       let otherParty = log.userId.toString() === req.user._id.toString() ?
                        (log.receiverId ? log.receiverId.username : 'N/A') :
                        log.userId.username;
 
-      // Determine the direction for the user
-      let direction = log.userId.toString() === req.user._id.toString() ? log.direction : (log.direction === 'credit' ? 'debit' : 'credit');
+      let direction = log.userId.toString() === req.user._id.toString() ? 
+                      log.direction : 
+                      (log.direction === 'credit' ? 'debit' : 'credit');
 
       return {
         date: log.date,
         amount: log.amount,
-        type: log.type,
+        type: log.type, // Ensure this is the correct field from your model
         direction: direction,
         otherParty: otherParty
       };
@@ -391,6 +423,7 @@ router.get('/transaction-logs', auth, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
 
 
 
