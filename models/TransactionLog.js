@@ -11,12 +11,12 @@ const transactionLogSchema = new mongoose.Schema({
     ref: 'User',
     default: null // Optional, only used in two-party transactions
   },
-  transactionType: {
+  type: {
     type: String,
     required: true,
-    enum: ['lend', 'pay', 'trade', 'add']
+    enum: ['debt-pay', 'debt-buy','debt-sell', 'add', 'borrow','lend-payback','lend','borrow']
   },
-  transactionDirection: {
+  direction: {
     type: String,
     required: true,
     enum: ['credit', 'debit']
@@ -25,7 +25,7 @@ const transactionLogSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  transactionDate: {
+  date: {
     type: Date,
     default: Date.now
   },
