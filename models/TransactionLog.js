@@ -14,7 +14,7 @@ const transactionLogSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['debt-pay', 'debt-buy','debt-sell', 'add', 'borrow','lend-payback','lend','borrow']
+    enum: ['debt-pay', 'debt-buy','debt-sell', 'add', 'borrow','lend-payback','lend']
   },
   direction: {
     type: String,
