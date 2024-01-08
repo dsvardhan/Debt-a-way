@@ -9,7 +9,7 @@ const DebtPostingForm = ({ token, onClose, onNewPosting,refreshPostings }) => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
-      const response = await axios.post('https://debt-a-way.onrender.com/api/debt-postings',
+      const response = await axios.post('https://localhost:5001/api/debt-postings',
         { amount, interestRate /*, other fields*/ },
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
@@ -23,11 +23,11 @@ const DebtPostingForm = ({ token, onClose, onNewPosting,refreshPostings }) => {
 
   return (
     <form onSubmit={handleSubmit}>
-      <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Amount" />
-      <input type="number" value={interestRate} onChange={e => setInterestRate(e.target.value)} placeholder="Interest Rate" />
-      {/* Other input fields */}
-      <button type="submit">Submit</button>
-    </form>
+    <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Amount" />
+    <input type="number" value={interestRate} onChange={e => setInterestRate(e.target.value)} placeholder="Interest Rate" />
+    {/* Other input fields */}
+    <button type="submit">Submit</button>
+  </form>
   );
 };
 
