@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const userRoutes = require('./routes/userRoutes');
 const debtPostingRoutes = require('./routes/debtPostingRoutes');
 const authMiddleware = require('./middleware/auth');
+//const debtPostingRoutes = require('./routes/debtPostingRoutes');
 const cors = require('cors');
 require('dotenv').config();
 
@@ -25,7 +26,7 @@ app.use('/api/users', userRoutes);
 // Debt Posting Routes
 app.use('/api/debt-postings', authMiddleware, debtPostingRoutes);
 
-
+//app.use('/api', debtPostingRoutes);
 // Start the server
 app.listen(port, () => {
   console.log(`Server running at https://debt-a-way.onrender.com/ `);
