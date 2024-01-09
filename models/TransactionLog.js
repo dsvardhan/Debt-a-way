@@ -6,7 +6,7 @@ const transactionLogSchema = new mongoose.Schema({
     required: true,
     ref: 'User'
   },
-  receiverId: {
+  otherId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     default: null // Optional, only used in two-party transactions
@@ -14,7 +14,7 @@ const transactionLogSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['debt-pay', 'debt-buy','debt-sell', 'add', 'borrow','lend-payback','lend']
+    enum: ['pay', 'debt-buy', 'add','lend']
   },
   direction: {
     type: String,

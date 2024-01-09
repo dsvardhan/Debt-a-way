@@ -154,24 +154,14 @@ router.patch('/lend/:id', auth, async (req, res) => {
       req.user.walletBalance -= debtPosting.amount;
       await req.user.save();
 
-      const lenderLog = new TransactionLog({
-        userId: req.user._id,
-        receiverId: debtPosting.borrower,
+      const transactionLog = new TransactionLog({
+        userId: req.user._id, // Lender
+        otherId: debtPosting.borrower, // Borrower
         type: 'lend',
         direction: 'debit',
         amount: debtPosting.amount
       });
-      await lenderLog.save();
-  
-      const borrower = await User.findById(debtPosting.borrower);
-      const borrowerLog = new TransactionLog({
-        userId: borrower._id,
-        receiverId: req.user._id,
-        type: 'borrow',
-        direction: 'credit',
-        amount: debtPosting.amount
-      });
-      await borrowerLog.save();
+      await transactionLog.save();
 
       // Sending both the debt posting and the user's updated data
       res.send({ debtPosting, user: req.user });
@@ -208,23 +198,15 @@ router.patch('/pay/:id', auth, async (req, res) => {
       debtPosting.isPaid = true; // Assuming 'isPaid' is a field in your model
       await debtPosting.save();
 
-      const payerLog = new TransactionLog({
-        userId: req.user._id,
-        receiverId: debtPosting.lender,
-        type: 'debt-pay',
+      const transactionLog = new TransactionLog({
+        userId: req.user._id, // Payer
+        otherId: debtPosting.lender, // Receiver
+        type: 'pay',
         direction: 'debit',
         amount: debtPosting.amount
       });
-      await payerLog.save();
-    
-      const receiverLog = new TransactionLog({
-        userId: debtPosting.lender,
-        receiverId: req.user._id,
-        type: 'lend-payback',
-        direction: 'credit',
-        amount: debtPosting.amount
-      });
-      await receiverLog.save();
+      await transactionLog.save();
+
       res.json({debtPosting,user:req.user});
   } catch (error) {
       res.status(500).json({ message: error.message });
@@ -304,23 +286,15 @@ router.patch('/buy-debt/:debtId', auth, async (req, res) => {
     await seller.save();
     await debtPosting.save();
 
-    const buyerLog = new TransactionLog({
-      userId: req.user._id,
-      receiverId: debtPosting.lender,
+    const transactionLog = new TransactionLog({
+      userId: req.user._id, // Buyer
+      otherId: debtPosting.lender, // Seller
       type: 'debt-buy',
       direction: 'debit',
-      amount: debtPosting.amount
+      amount: debtPosting.tradePrice
     });
-    await buyerLog.save();
-  
-    const sellerLog =new TransactionLog({
-      userId: debtPosting.lender,
-      receiverId: req.user._id,
-      type: 'debt-sell',
-      direction: 'credit',
-      amount: debtPosting.amount
-    });
-    await sellerLog.save();
+    await transactionLog.save();
+
 
     res.json({ debtPosting, buyer, seller });
   } catch (error) {
@@ -392,14 +366,50 @@ router.patch('/buy-debt/:debtId', auth, async (req, res) => {
 //   }
 // });
 
+// router.get('/transaction-logs', auth, async (req, res) => {
+//   try {
+//     const transactionLogs = await TransactionLog.find({
+//       $or: [{ userId: req.user._id }, { receiverId: req.user._id }]
+//     })
+//     .populate('userId receiverId', 'username') // Ensure these fields match your User model
+//     .sort({ date: -1 });
+
+//     const formattedLogs = transactionLogs.map(log => {
+//       let otherParty = log.userId.toString() === req.user._id.toString() ?
+//                        (log.receiverId ? log.receiverId.username : 'N/A') :
+//                        log.userId.username;
+
+//       let direction = log.userId.toString() === req.user._id.toString() ? 
+//                       log.direction : 
+//                       (log.direction === 'credit' ? 'debit' : 'credit');
+
+//       return {
+//         date: log.date,
+//         amount: log.amount,
+//         type: log.type, // Ensure this is the correct field from your model
+//         direction: direction,
+//         otherParty: otherParty
+//       };
+//     });
+
+//     res.json(formattedLogs);
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// });
+
+
+
 router.get('/transaction-logs', auth, async (req, res) => {
   try {
+    // Fetching logs where the user is either the initiator or the receiver
     const transactionLogs = await TransactionLog.find({
       $or: [{ userId: req.user._id }, { receiverId: req.user._id }]
     })
-    .populate('userId receiverId', 'username') // Ensure these fields match your User model
+    .populate('userId receiverId', 'username') // Adjust fields based on your User model
     .sort({ date: -1 });
 
+    // Format logs for a more user-friendly output
     const formattedLogs = transactionLogs.map(log => {
       let otherParty = log.userId.toString() === req.user._id.toString() ?
                        (log.receiverId ? log.receiverId.username : 'N/A') :
@@ -423,7 +433,6 @@ router.get('/transaction-logs', auth, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
-
 
 
 
