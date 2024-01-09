@@ -400,30 +400,61 @@ router.patch('/buy-debt/:debtId', auth, async (req, res) => {
 
 
 
+// router.get('/transaction-logs', auth, async (req, res) => {
+//   try {
+//     // Fetching logs where the user is either the initiator or the receiver
+//     const transactionLogs = await TransactionLog.find({
+//       $or: [{ userId: req.user._id }, { receiverId: req.user._id }]
+//     })
+//     .populate('userId receiverId', 'username') // Adjust fields based on your User model
+//     .sort({ date: -1 });
+
+//     // Format logs for a more user-friendly output
+//     const formattedLogs = transactionLogs.map(log => {
+//       let otherParty = log.userId.toString() === req.user._id.toString() ?
+//                        (log.receiverId ? log.receiverId.username : 'N/A') :
+//                        log.userId.username;
+
+//       let direction = log.userId.toString() === req.user._id.toString() ? 
+//                       log.direction : 
+//                       (log.direction === 'credit' ? 'debit' : 'credit');
+
+//       return {
+//         date: log.date,
+//         amount: log.amount,
+//         type: log.type, // Ensure this is the correct field from your model
+//         direction: direction,
+//         otherParty: otherParty
+//       };
+//     });
+
+//     res.json(formattedLogs);
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// });
+
+
 router.get('/transaction-logs', auth, async (req, res) => {
   try {
-    // Fetching logs where the user is either the initiator or the receiver
+    // Fetching logs where the user is either the initiator or involved in the transaction
     const transactionLogs = await TransactionLog.find({
-      $or: [{ userId: req.user._id }, { receiverId: req.user._id }]
+      $or: [{ userId: req.user._id }, { otherId: req.user._id }]
     })
-    .populate('userId receiverId', 'username') // Adjust fields based on your User model
+    .populate('userId otherId', 'username') // Populate with user details
     .sort({ date: -1 });
 
-    // Format logs for a more user-friendly output
+    // Format logs for a user-friendly output
     const formattedLogs = transactionLogs.map(log => {
       let otherParty = log.userId.toString() === req.user._id.toString() ?
-                       (log.receiverId ? log.receiverId.username : 'N/A') :
+                       (log.otherId ? log.otherId.username : 'N/A') :
                        log.userId.username;
-
-      let direction = log.userId.toString() === req.user._id.toString() ? 
-                      log.direction : 
-                      (log.direction === 'credit' ? 'debit' : 'credit');
 
       return {
         date: log.date,
         amount: log.amount,
-        type: log.type, // Ensure this is the correct field from your model
-        direction: direction,
+        type: log.type,
+        direction: log.userId.toString() === req.user._id.toString() ? 'debit' : 'credit', // Direction relative to the user
         otherParty: otherParty
       };
     });
