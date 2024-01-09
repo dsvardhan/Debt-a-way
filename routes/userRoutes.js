@@ -76,8 +76,8 @@ router.patch('/update-wallet/:userId', auth, async (req, res) => {
     // Log for adding money (credit)
     const addLog = new TransactionLog({
       userId: req.user._id, // User's ID
-      transactionType: 'add',
-      transactionDirection: 'credit',
+      type: 'add',
+      direction: 'credit',
       amount: amountToAdd // The amount added to the wallet
     });
     await addLog.save();
