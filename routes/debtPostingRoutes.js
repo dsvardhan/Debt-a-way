@@ -278,6 +278,7 @@ router.patch('/buy-debt/:debtId', auth, async (req, res) => {
     buyer.walletBalance -= debtPosting.tradePrice;
     seller.walletBalance += debtPosting.tradePrice;
 
+    const oldLenderId=debtPosting.lender;
     // Update the lender of the debt posting
     debtPosting.lender = newLenderId;
     debtPosting.isTradable = false; // Make the debt non-tradable after purchase
@@ -288,7 +289,7 @@ router.patch('/buy-debt/:debtId', auth, async (req, res) => {
 
     const transactionLog = new TransactionLog({
       userId: req.user._id, // Buyer
-      otherId: debtPosting.lender, // Seller
+      otherId: oldLenderId, // Seller
       type: 'debt-buy',
       direction: 'debit',
       amount: debtPosting.tradePrice
