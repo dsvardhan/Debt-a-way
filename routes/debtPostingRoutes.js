@@ -435,6 +435,37 @@ router.patch('/buy-debt/:debtId', auth, async (req, res) => {
 // });
 
 
+// router.get('/transaction-logs', auth, async (req, res) => {
+//   try {
+//     // Fetching logs where the user is either the initiator or involved in the transaction
+//     const transactionLogs = await TransactionLog.find({
+//       $or: [{ userId: req.user._id }, { otherId: req.user._id }]
+//     })
+//     .populate('userId otherId', 'username') // Populate with user details
+//     .sort({ date: -1 });
+
+//     // Format logs for a user-friendly output
+//     const formattedLogs = transactionLogs.map(log => {
+//       let otherParty = log.userId.toString() === req.user._id.toString() ?
+//                        (log.otherId ? log.otherId.username : 'N/A') :
+//                        log.userId.username;
+
+//       return {
+//         date: log.date,
+//         amount: log.amount,
+//         type: log.type,
+//         direction: log.userId.toString() === req.user._id.toString() ? 'debit' : 'credit', // Direction relative to the user
+//         otherParty: otherParty
+//       };
+//     });
+
+//     res.json(formattedLogs);
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// });
+
+
 router.get('/transaction-logs', auth, async (req, res) => {
   try {
     // Fetching logs where the user is either the initiator or involved in the transaction
@@ -444,22 +475,7 @@ router.get('/transaction-logs', auth, async (req, res) => {
     .populate('userId otherId', 'username') // Populate with user details
     .sort({ date: -1 });
 
-    // Format logs for a user-friendly output
-    const formattedLogs = transactionLogs.map(log => {
-      let otherParty = log.userId.toString() === req.user._id.toString() ?
-                       (log.otherId ? log.otherId.username : 'N/A') :
-                       log.userId.username;
-
-      return {
-        date: log.date,
-        amount: log.amount,
-        type: log.type,
-        direction: log.userId.toString() === req.user._id.toString() ? 'debit' : 'credit', // Direction relative to the user
-        otherParty: otherParty
-      };
-    });
-
-    res.json(formattedLogs);
+    res.json(transactionLogs);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
