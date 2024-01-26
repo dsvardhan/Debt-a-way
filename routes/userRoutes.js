@@ -8,8 +8,11 @@ const TransactionLog = require('../models/TransactionLog');
 
 //const router = express.Router();
 
+const tracer = require('dd-trace').init();
+
 // User registration
 router.post('/register', async (req, res) => {
+  const span = tracer.startSpan('user.register');
   try {
     // Create a new user
     const user = new User(req.body);
@@ -17,13 +20,17 @@ router.post('/register', async (req, res) => {
 
     // Send response
     res.status(201).send({ user });
+    span.finish();
   } catch (error) {
     res.status(400).send(error.message);
+    span.setTag('error', error);
+    span.finish();
   }
 });
 
 // User login
 router.post('/login', async (req, res) => {
+  const span = tracer.startSpan('user.login');
   try {
     // Verify email and password
     const user = await User.findOne({ email: req.body.email });
@@ -36,14 +43,18 @@ router.post('/login', async (req, res) => {
 
     // Send response
     res.send({ user: user.toObject({ getters: true }), token });
+    span.finish();
   } catch (error) {
     res.status(500).send(error.message);
+    span.setTag('error', error);
+    span.finish();
   }
 });
 
 // In /routes/dashboardRoutes.js or /routes/userRoutes.js
 
 router.get('/dashboard', auth, async (req, res) => {
+  const span = tracer.startSpan('user.dashboard');
     try {
       // Retrieve debts owed by the user
       const debtsOwed = await DebtPosting.find({ borrower: req.user._id });
@@ -53,12 +64,16 @@ router.get('/dashboard', auth, async (req, res) => {
   
       // You can add more data as needed for the dashboard
       res.send({ debtsOwed, debtsToReceive });
+      span.finish();
     } catch (error) {
       res.status(500).send(error.message);
+      span.setTag('error', error);
+      span.finish();
     }
 });
 
 router.patch('/update-wallet/:userId', auth, async (req, res) => {
+  const span = tracer.startSpan('user.updateWallet');
   try {
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -83,8 +98,11 @@ router.patch('/update-wallet/:userId', auth, async (req, res) => {
     await addLog.save();
 
     res.send(user);
+    span.finish();
   } catch (error) {
     res.status(400).send(error.message);
+    span.setTag('error', error);
+    span.finish();
   }
 });
 
@@ -102,6 +120,7 @@ router.patch('/update-wallet/:userId', auth, async (req, res) => {
 // });
 
 router.get('/wallet-balance/:userId', auth, async (req, res) => {
+  const span = tracer.startSpan('user.walletBalance');
   try {
     // const userId = req.params.userId;
     // const user = await User.findById(userId);
@@ -114,8 +133,11 @@ router.get('/wallet-balance/:userId', auth, async (req, res) => {
     const walletBalance = user.walletBalance !== undefined ? user.walletBalance : 0;
 
     res.json({ walletBalance });
+    span.finish();
   } catch (error) {
     res.status(500).send('Server error');
+    span.setTag('error', error);
+    span.finish();
   }
 });
 
