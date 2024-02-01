@@ -5,7 +5,6 @@ const auth = require('../middleware/auth');
 const User = require('../models/User'); // Or the correct path to your User model
 const TransactionLog = require('../models/TransactionLog'); // Update the path as necessary
 
-const tracer = require('dd-trace').init();
 
 // Post a new debt
 router.post('/', async (req, res) => {
