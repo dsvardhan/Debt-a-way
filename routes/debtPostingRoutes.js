@@ -8,64 +8,47 @@ const TransactionLog = require('../models/TransactionLog'); // Update the path a
 
 // Post a new debt
 router.post('/', async (req, res) => {
-  const span = tracer.startSpan('debtPosting.create');
   try {
     const debtPosting = new DebtPosting({...req.body,borrower:req.user._id});
     await debtPosting.save();
     res.status(201).send(debtPosting);
-    span.finish();
   } catch (error) {
     res.status(400).send(error.message);
-    span.setTag('error', error);
-    span.finish();
   }
 });
 
 
 router.get('/', async (req, res) => {
-  const span = tracer.startSpan('debtPosting.list');
   try {
     const debtPostings = await DebtPosting.find({ isFulfilled: false })
       .populate('borrower', 'username'); // Assuming 'name' is a field in your User model
     res.send(debtPostings);
-    span.finish();
   } catch (error) {
     res.status(500).send(error.message);
-    span.setTag('error', error);
-    span.finish();
   }
 });
 
 router.get('/debts-owed-by/:userId', auth,async (req, res) => {
-  const span = tracer.startSpan('debtPosting.debtsOwedBy');
   try {
       const debtsOwedByUser = await DebtPosting.find({ borrower: req.user._id, isFulfilled: true, isPaid:false })
           .populate('lender', 'username');
       res.json(debtsOwedByUser);
-      span.finish();
   } catch (error) {
       res.status(500).json({ message: error.message });
-      span.setTag('error', error);
-      span.finish();
   }
 });
 
 router.get('/debts-owed-to/:UserId',auth, async (req, res) => {
-  const span = tracer.startSpan('debtPosting.debtsOwedTo');
   try {
       const debtsOwedToUser = await DebtPosting.find({ lender: req.user._id, isFulfilled: true, isPaid:false })
           .populate('borrower', 'username');
       res.json(debtsOwedToUser);
-      span.finish();
   } catch (error) {
       res.status(500).json({ message: error.message });
-      span.setTag('error', error);
-      span.finish();
   }
 });
 
 router.get('/debts-history/:userId', auth, async (req, res) => {
-  const span = tracer.startSpan('debtPosting.history');
   try {
       // Fetch debts where the user is either the lender or the borrower and the debt is paid
       const debtsHistory = await DebtPosting.find({
@@ -75,11 +58,8 @@ router.get('/debts-history/:userId', auth, async (req, res) => {
       }).populate('borrower lender', 'username');
 
       res.json(debtsHistory);
-      span.finish();
   } catch (error) {
       res.status(500).json({ message: error.message });
-      span.setTag('error', error);
-      span.finish();
   }
 });
 
@@ -149,7 +129,6 @@ router.get('/debts-history/:userId', auth, async (req, res) => {
 // });
 
 router.patch('/lend/:id', auth, async (req, res) => {
-  const span = tracer.startSpan('debtPosting.lend');
   try {
       const debtPosting = await DebtPosting.findById(req.params.id);
 
@@ -186,17 +165,13 @@ router.patch('/lend/:id', auth, async (req, res) => {
 
       // Sending both the debt posting and the user's updated data
       res.send({ debtPosting, user: req.user });
-      span.finish();
   } catch (error) {
       res.status(400).send(error.message);
-      span.setTag('error', error);
-      span.finish();
   }
 });
 
 
 router.patch('/pay/:id', auth, async (req, res) => {
-  const span = tracer.startSpan('debtPosting.pay');
   try {
       const debtId = req.params.id;
 
@@ -233,17 +208,13 @@ router.patch('/pay/:id', auth, async (req, res) => {
       await transactionLog.save();
 
       res.json({debtPosting,user:req.user});
-      span.finish();
   } catch (error) {
       res.status(500).json({ message: error.message });
-      span.setTag('error', error);
-      span.finish();
   }
 });
 
 
 router.patch('/trade-debt/:id', auth, async (req, res) => {
-  const span = tracer.startSpan('debtPosting.tradeDebt');
   try {
     const debtPosting = await DebtPosting.findById(req.params.id);
     if (!debtPosting) {
@@ -256,30 +227,22 @@ router.patch('/trade-debt/:id', auth, async (req, res) => {
     debtPosting.tradePrice = req.body.tradePrice;
     await debtPosting.save();
     res.send(debtPosting);
-    span.finish();
   } catch (error) {
     res.status(500).send(error.message);
-    span.setTag('error', error);
-    span.finish();
   }
 });
 
 router.get('/tradable-debts', async (req, res) => {
-  const span = tracer.startSpan('debtPosting.tradableDebtsList');
   try {
     const tradableDebts = await DebtPosting.find({ isTradable: true }).populate('borrower lender', 'username');
     res.send(tradableDebts);
-    span.finish();
   } catch (error) {
     res.status(500).send(error.message);
-    span.setTag('error', error);
-    span.finish();
   }
 });
 
 // In your debtPostingRoutes.js or similar file
 router.patch('/buy-debt/:debtId', auth, async (req, res) => {
-  const span = tracer.startSpan('debtPosting.buyDebt');
   try {
     const debtId = req.params.debtId;
     const newLenderId = req.user._id; // The current user is the buyer
@@ -335,11 +298,8 @@ router.patch('/buy-debt/:debtId', auth, async (req, res) => {
 
 
     res.json({ debtPosting, buyer, seller });
-    span.finish();
   } catch (error) {
     res.status(500).send(error.message);
-    span.setTag('error', error);
-    span.finish();
   }
 });
 
@@ -508,7 +468,6 @@ router.patch('/buy-debt/:debtId', auth, async (req, res) => {
 
 
 router.get('/transaction-logs', auth, async (req, res) => {
-  const span = tracer.startSpan('debtPostingtransactionLog');
   try {
     // Fetching logs where the user is either the initiator or involved in the transaction
     const transactionLogs = await TransactionLog.find({
@@ -518,11 +477,8 @@ router.get('/transaction-logs', auth, async (req, res) => {
     .sort({ date: -1 });
 
     res.json(transactionLogs);
-    span.finish();
   } catch (error) {
     res.status(500).json({ message: error.message });
-    span.setTag('error', error);
-    span.finish();
   }
 });
 
