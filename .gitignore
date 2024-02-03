@@ -26,6 +26,6 @@ yarn-error.log*
 
 profiler results
 
-processed.txt
+processed
 
-processedOld.txt
+isolates
