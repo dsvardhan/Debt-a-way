@@ -4,11 +4,12 @@
   "description": "A peer to peer lending app side project ",
   "main": "app.js",
   "scripts": {
-    "start":"node app.js"
+    "start": "node app.js"
   },
   "author": "Srinivas Vardhan Dintakurthi",
   "license": "ISC",
   "dependencies": {
+    "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
