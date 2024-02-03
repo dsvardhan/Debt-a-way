@@ -23,23 +23,38 @@ router.post('/register', async (req, res) => {
 });
 
 // User login
+// router.post('/login', async (req, res) => {
+//   try {
+//     // Verify email and password
+//     const user = await User.findOne({ email: req.body.email });
+//     if (!user || !await bcrypt.compare(req.body.password, user.password)) {
+//       return res.status(401).send('Invalid login credentials');
+//     }
+
+//     // Generate a JWT token
+//     const token = jwt.sign({ _id: user._id.toString() }, process.env.JWT_SECRET);
+
+//     // Send response
+//     res.send({ user: user.toObject({ getters: true }), token });
+//   } catch (error) {
+//     res.status(500).send(error.message);
+//   }
+// });
+
 router.post('/login', async (req, res) => {
   try {
-    // Verify email and password
     const user = await User.findOne({ email: req.body.email });
     if (!user || !await bcrypt.compare(req.body.password, user.password)) {
       return res.status(401).send('Invalid login credentials');
     }
 
-    // Generate a JWT token
     const token = jwt.sign({ _id: user._id.toString() }, process.env.JWT_SECRET);
-
-    // Send response
-    res.send({ user: user.toObject({ getters: true }), token });
+    res.send({ user: { id: user._id, email: user.email }, token });
   } catch (error) {
     res.status(500).send(error.message);
   }
 });
+
 
 // In /routes/dashboardRoutes.js or /routes/userRoutes.js
 
