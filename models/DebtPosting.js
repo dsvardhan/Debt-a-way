@@ -1,6 +1,6 @@
 // In /models/DebtPosting.js
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 
 const debtPostingSchema = new mongoose.Schema({
     amount: { type: Number, required: true },
@@ -15,6 +15,9 @@ const debtPostingSchema = new mongoose.Schema({
     tradePrice: { type: Number,default:null }
 
   });
+
+  debtPostingSchema.index({ isFulfilled: 1 }); // Add this line
+
   
   module.exports = mongoose.model('DebtPosting', debtPostingSchema);
   
