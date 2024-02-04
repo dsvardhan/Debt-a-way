@@ -1,16 +1,38 @@
+require('dotenv').config();
 const express = require('express');
 const DebtPosting = require('../models/DebtPosting');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const User = require('../models/User'); // Or the correct path to your User model
 const TransactionLog = require('../models/TransactionLog'); // Update the path as necessary
+const { createClient } = require('redis');
+const { promisify } = require('util');
 
+// Assuming Redis is running on the default port on localhost
+const redisClient = createClient({
+  url: `redis://default:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`
+});
+redisClient.connect().catch(console.error);
+
+// Listen for the "ready" event to ensure the client has connected successfully
+redisClient.on('ready', () => console.log('Redis client connected successfully'));
+redisClient.on('error', (err) => console.log('Redis Client Error', err));
+
+//await redisClient.connect();
+
+const delAsync = promisify(redisClient.del).bind(redisClient);
+const getAsync = promisify(redisClient.get).bind(redisClient);
+const setAsync = promisify(redisClient.set).bind(redisClient);
 
 // Post a new debt
 router.post('/', async (req, res) => {
   try {
     const debtPosting = new DebtPosting({...req.body,borrower:req.user._id});
     await debtPosting.save();
+
+    // Invalidate the cache for unfulfilled debt postings
+    await delAsync('unfulfilledDebtPostings');
+
     res.status(201).send(debtPosting);
   } catch (error) {
     res.status(400).send(error.message);
@@ -18,12 +40,38 @@ router.post('/', async (req, res) => {
 });
 
 
+// router.get('/', async (req, res) => {
+//   const cacheKey = 'unfulfilledDebtPostings';
+//   try {
+//     const debtPostings = await DebtPosting.find({ isFulfilled: false })
+//       .populate('borrower', 'username'); // Assuming 'name' is a field in your User model
+//     res.send(debtPostings);
+//   } catch (error) {
+//     res.status(500).send(error.message);
+//   }
+// });
+
 router.get('/', async (req, res) => {
+  const cacheKey = 'unfulfilledDebtPostings';
   try {
-    const debtPostings = await DebtPosting.find({ isFulfilled: false })
-      .populate('borrower', 'username'); // Assuming 'name' is a field in your User model
-    res.send(debtPostings);
+    // Try fetching the result from cache first
+    const cachedDebtPostings = await getAsync(cacheKey);
+    
+    if (cachedDebtPostings) {
+      console.log('Serving from cache');
+      return res.send(JSON.parse(cachedDebtPostings));
+    } else {
+      const debtPostings = await DebtPosting.find({ isFulfilled: false })
+        .populate('borrower', 'username'); // Assuming 'username' is a field in your User model
+
+      // Save the result to Redis cache, set to expire in 1 hour (3600 seconds)
+      await setAsync(cacheKey, JSON.stringify(debtPostings), 'EX', 3600);
+      console.log('Serving from database');
+
+      return res.send(debtPostings);
+    }
   } catch (error) {
+    console.error('Error fetching data:', error);
     res.status(500).send(error.message);
   }
 });
