@@ -6,7 +6,6 @@ const auth = require('../middleware/auth');
 const User = require('../models/User'); // Or the correct path to your User model
 const TransactionLog = require('../models/TransactionLog'); // Update the path as necessary
 const { createClient } = require('redis');
-const { promisify } = require('util');
 
 // Assuming Redis is running on the default port on localhost
 const redisClient = createClient({
@@ -20,9 +19,21 @@ redisClient.on('error', (err) => console.log('Redis Client Error', err));
 
 //await redisClient.connect();
 
-const delAsync = promisify(redisClient.del).bind(redisClient);
-const getAsync = promisify(redisClient.get).bind(redisClient);
-const setAsync = promisify(redisClient.set).bind(redisClient);
+// Utility functions for Redis operations using async/await
+async function cacheDel(key) {
+  await redisClient.del(key);
+}
+
+async function cacheGet(key) {
+  const data = await redisClient.get(key);
+  return data ? JSON.parse(data) : null;
+}
+
+async function cacheSet(key, value, ttl = 3600) {
+  await redisClient.set(key, JSON.stringify(value), {
+    EX: ttl // Sets expiration time (default 1 hour)
+  });
+}
 
 // Post a new debt
 router.post('/', async (req, res) => {
@@ -31,7 +42,7 @@ router.post('/', async (req, res) => {
     await debtPosting.save();
 
     // Invalidate the cache for unfulfilled debt postings
-    await delAsync('unfulfilledDebtPostings');
+    await cacheDel('unfulfilledDebtPostings');
 
     res.status(201).send(debtPosting);
   } catch (error) {
@@ -55,17 +66,18 @@ router.get('/', async (req, res) => {
   const cacheKey = 'unfulfilledDebtPostings';
   try {
     // Try fetching the result from cache first
-    const cachedDebtPostings = await getAsync(cacheKey);
+    const cachedDebtPostings = await cacheGet(cacheKey);
     
     if (cachedDebtPostings) {
       console.log('Serving from cache');
-      return res.send(JSON.parse(cachedDebtPostings));
+      return res.send(cachedDebtPostings);
     } else {
       const debtPostings = await DebtPosting.find({ isFulfilled: false })
         .populate('borrower', 'username'); // Assuming 'username' is a field in your User model
 
       // Save the result to Redis cache, set to expire in 1 hour (3600 seconds)
-      await setAsync(cacheKey, JSON.stringify(debtPostings), 'EX', 3600);
+      //await cacheSet(cacheKey, JSON.stringify(debtPostings), 'EX', 3600);
+      await cacheSet(cacheKey, debtPostings, 3600);
       console.log('Serving from database');
 
       return res.send(debtPostings);
