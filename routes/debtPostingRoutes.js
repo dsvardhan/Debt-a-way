@@ -5,17 +5,11 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const User = require('../models/User'); // Or the correct path to your User model
 const TransactionLog = require('../models/TransactionLog'); // Update the path as necessary
-const { createClient } = require('redis');
+const redisClient = require('../utils/redisClient');
 
 // Assuming Redis is running on the default port on localhost
-const redisClient = createClient({
-  url: `redis://default:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`
-});
-redisClient.connect().catch(console.error);
 
-// Listen for the "ready" event to ensure the client has connected successfully
-redisClient.on('ready', () => console.log('Redis client connected successfully'));
-redisClient.on('error', (err) => console.log('Redis Client Error', err));
+
 
 //await redisClient.connect();
 

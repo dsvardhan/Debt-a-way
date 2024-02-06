@@ -4,7 +4,23 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const router = express.Router();
 const auth=require('../middleware/auth');
-const TransactionLog = require('../models/TransactionLog'); 
+const TransactionLog = require('../models/TransactionLog');
+require('dotenv').config();
+const redisClient = require('../utils/redisClient');
+
+// Utility functions for Redis operations
+async function cacheGet(key) {
+  const data = await redisClient.get(key);
+  return data ? JSON.parse(data) : null;
+}
+
+async function cacheSet(key, value, ttl = 3600) {
+  await redisClient.setEx(key, ttl, JSON.stringify(value));
+}
+
+async function cacheDel(key) {
+  await redisClient.del(key);
+}
 
 //const router = express.Router();
 
@@ -41,14 +57,38 @@ router.post('/register', async (req, res) => {
 //   }
 // });
 
+// router.post('/login', async (req, res) => {
+//   try {
+//     const user = await User.findOne({ email: req.body.email });
+//     if (!user || !await bcrypt.compare(req.body.password, user.password)) {
+//       return res.status(401).send('Invalid login credentials');
+//     }
+
+//     const token = jwt.sign({ _id: user._id.toString() }, process.env.JWT_SECRET);
+//     res.send({ user: { id: user._id, email: user.email }, token });
+//   } catch (error) {
+//     res.status(500).send(error.message);
+//   }
+// });
+
+// User login with Redis session caching
 router.post('/login', async (req, res) => {
   try {
-    const user = await User.findOne({ email: req.body.email });
+    let user = await cacheGet(`user_${req.body.email}`); // Attempt to fetch user from cache
+    if (!user) {
+      user = await User.findOne({ email: req.body.email });
+      if (user) {
+        // Cache the user details for future logins
+        await cacheSet(`user_${req.body.email}`, user, 3600); // Cache for 1 hour
+      }
+    }
+
     if (!user || !await bcrypt.compare(req.body.password, user.password)) {
       return res.status(401).send('Invalid login credentials');
     }
 
     const token = jwt.sign({ _id: user._id.toString() }, process.env.JWT_SECRET);
+    // Optionally, you could cache the active token here to implement token invalidation on logout
     res.send({ user: { id: user._id, email: user.email }, token });
   } catch (error) {
     res.status(500).send(error.message);
