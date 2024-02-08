@@ -17,7 +17,7 @@ const debtPostingSchema = new mongoose.Schema({
   });
 
   debtPostingSchema.index({ isFulfilled: 1 }); // Add this line
- .// debtPostingSchema.index({ borrower: 1 });
+ // debtPostingSchema.index({ borrower: 1 });
   
   module.exports = mongoose.model('DebtPosting', debtPostingSchema);
   
