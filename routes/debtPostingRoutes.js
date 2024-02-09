@@ -38,21 +38,38 @@ async function cacheSet(key, value, ttl = 3600) {
 //   }
 // });
 
+// router.post('/', async (req, res) => {
+//   try {
+//     const debtPosting = new DebtPosting({ ...req.body, borrower: req.user._id });
+//     await debtPosting.save();
+
+//     // Calculate the last page
+//     const totalCount = await DebtPosting.countDocuments({ isFulfilled: false });
+//     const limit = 10; // Assuming you have a default or fixed limit
+//     const lastPage = Math.ceil(totalCount / limit);
+
+//     // Invalidate the cache for the last page of unfulfilled debt postings
+//     const cacheKeyLastPage = `unfulfilledDebtPostings_page:${lastPage}_limit:${limit}`;
+//     await cacheDel(cacheKeyLastPage);
+
+//     console.log(`Cache invalidated for ${cacheKeyLastPage}`);
+//     res.status(201).send(debtPosting);
+//   } catch (error) {
+//     console.error('Error creating debt posting:', error);
+//     res.status(400).send(error.message);
+//   }
+// });
+
+
 router.post('/', async (req, res) => {
   try {
     const debtPosting = new DebtPosting({ ...req.body, borrower: req.user._id });
     await debtPosting.save();
 
-    // Calculate the last page
-    const totalCount = await DebtPosting.countDocuments({ isFulfilled: false });
-    const limit = 10; // Assuming you have a default or fixed limit
-    const lastPage = Math.ceil(totalCount / limit);
+    // Invalidate the entire cache related to unfulfilled debt postings
+    await cacheDel('unfulfilledDebtPostings');
 
-    // Invalidate the cache for the last page of unfulfilled debt postings
-    const cacheKeyLastPage = `unfulfilledDebtPostings_page:${lastPage}_limit:${limit}`;
-    await cacheDel(cacheKeyLastPage);
-
-    console.log(`Cache invalidated for ${cacheKeyLastPage}`);
+    console.log('Cache invalidated for unfulfilled debt postings');
     res.status(201).send(debtPosting);
   } catch (error) {
     console.error('Error creating debt posting:', error);
