@@ -61,15 +61,33 @@ async function cacheSet(key, value, ttl = 3600) {
 // });
 
 
+// router.post('/', async (req, res) => {
+//   try {
+//     const debtPosting = new DebtPosting({ ...req.body, borrower: req.user._id });
+//     await debtPosting.save();
+
+//     // Invalidate the entire cache related to unfulfilled debt postings
+//     await cacheDel('unfulfilledDebtPostings');
+
+//     console.log('Cache invalidated for unfulfilled debt postings');
+//     res.status(201).send(debtPosting);
+//   } catch (error) {
+//     console.error('Error creating debt posting:', error);
+//     res.status(400).send(error.message);
+//   }
+// });
+
 router.post('/', async (req, res) => {
   try {
     const debtPosting = new DebtPosting({ ...req.body, borrower: req.user._id });
     await debtPosting.save();
 
-    // Invalidate the entire cache related to unfulfilled debt postings
-    await cacheDel('unfulfilledDebtPostings');
+    // Invalidate the cache for the first page of unfulfilled debt postings
+    const limit = 10; // Assuming the same limit as in your paginated GET route
+    const cacheKeyFirstPage = `unfulfilledDebtPostings_page:1_limit:${limit}`;
+    await cacheDel(cacheKeyFirstPage);
 
-    console.log('Cache invalidated for unfulfilled debt postings');
+    console.log(`Cache invalidated for ${cacheKeyFirstPage}`);
     res.status(201).send(debtPosting);
   } catch (error) {
     console.error('Error creating debt posting:', error);
