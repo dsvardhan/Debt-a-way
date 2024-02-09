@@ -7,12 +7,6 @@ const User = require('../models/User'); // Or the correct path to your User mode
 const TransactionLog = require('../models/TransactionLog'); // Update the path as necessary
 const redisClient = require('../utils/redisClient');
 
-// Assuming Redis is running on the default port on localhost
-
-
-
-//await redisClient.connect();
-
 // Utility functions for Redis operations using async/await
 async function cacheDel(key) {
   await redisClient.del(key);
@@ -30,57 +24,117 @@ async function cacheSet(key, value, ttl = 3600) {
 }
 
 // Post a new debt
+// router.post('/', async (req, res) => {
+//   try {
+//     const debtPosting = new DebtPosting({...req.body,borrower:req.user._id});
+//     await debtPosting.save();
+
+//     // Invalidate the cache for unfulfilled debt postings
+//     await cacheDel('unfulfilledDebtPostings');
+
+//     res.status(201).send(debtPosting);
+//   } catch (error) {
+//     res.status(400).send(error.message);
+//   }
+// });
+
 router.post('/', async (req, res) => {
   try {
-    const debtPosting = new DebtPosting({...req.body,borrower:req.user._id});
+    const debtPosting = new DebtPosting({ ...req.body, borrower: req.user._id });
     await debtPosting.save();
 
-    // Invalidate the cache for unfulfilled debt postings
-    await cacheDel('unfulfilledDebtPostings');
+    // Calculate the last page
+    const totalCount = await DebtPosting.countDocuments({ isFulfilled: false });
+    const limit = 10; // Assuming you have a default or fixed limit
+    const lastPage = Math.ceil(totalCount / limit);
 
+    // Invalidate the cache for the last page of unfulfilled debt postings
+    const cacheKeyLastPage = `unfulfilledDebtPostings_page:${lastPage}_limit:${limit}`;
+    await cacheDel(cacheKeyLastPage);
+
+    console.log(`Cache invalidated for ${cacheKeyLastPage}`);
     res.status(201).send(debtPosting);
   } catch (error) {
+    console.error('Error creating debt posting:', error);
     res.status(400).send(error.message);
   }
 });
 
 
+
+
 // router.get('/', async (req, res) => {
 //   const cacheKey = 'unfulfilledDebtPostings';
 //   try {
-//     const debtPostings = await DebtPosting.find({ isFulfilled: false })
-//       .populate('borrower', 'username'); // Assuming 'name' is a field in your User model
-//     res.send(debtPostings);
+//     // Try fetching the result from cache first
+//     const cachedDebtPostings = await cacheGet(cacheKey);
+    
+//     if (cachedDebtPostings) {
+//       console.log('Serving from cache');
+//       return res.send(cachedDebtPostings);
+//     } else {
+//       const debtPostings = await DebtPosting.find({ isFulfilled: false })
+//         .populate('borrower', 'username'); // Assuming 'username' is a field in your User model
+
+//       // Save the result to Redis cache, set to expire in 1 hour (3600 seconds)
+//       //await cacheSet(cacheKey, JSON.stringify(debtPostings), 'EX', 3600);
+//       await cacheSet(cacheKey, debtPostings, 3600);
+//       console.log('Serving from database');
+
+//       return res.send(debtPostings);
+//     }
 //   } catch (error) {
+//     console.error('Error fetching data:', error);
 //     res.status(500).send(error.message);
 //   }
 // });
 
+// Updated GET route with pagination
 router.get('/', async (req, res) => {
-  const cacheKey = 'unfulfilledDebtPostings';
+  // Default values if not provided
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const skipIndex = (page - 1) * limit;
+
+  const cacheKey = `unfulfilledDebtPostings_page:${page}_limit:${limit}`;
+
   try {
-    // Try fetching the result from cache first
-    const cachedDebtPostings = await cacheGet(cacheKey);
-    
+    let cachedDebtPostings = await cacheGet(cacheKey);
+
     if (cachedDebtPostings) {
       console.log('Serving from cache');
-      return res.send(cachedDebtPostings);
+      res.status(200).json(cachedDebtPostings);
     } else {
-      const debtPostings = await DebtPosting.find({ isFulfilled: false })
-        .populate('borrower', 'username'); // Assuming 'username' is a field in your User model
+      const [results, totalCount] = await Promise.all([
+        DebtPosting.find({ isFulfilled: false })
+          .sort({ createdAt: -1 }) // Assuming you want the newest first; adjust as needed.
+          .skip(skipIndex)
+          .limit(limit)
+          .populate('borrower', 'username'), // Modify as needed based on your User model
+        DebtPosting.countDocuments({ isFulfilled: false })
+      ]);
 
-      // Save the result to Redis cache, set to expire in 1 hour (3600 seconds)
-      //await cacheSet(cacheKey, JSON.stringify(debtPostings), 'EX', 3600);
-      await cacheSet(cacheKey, debtPostings, 3600);
+      const totalPages = Math.ceil(totalCount / limit);
+
+      const paginatedResults = {
+        data: results,
+        page,
+        limit,
+        totalPages,
+        totalCount,
+      };
+
+      await cacheSet(cacheKey, paginatedResults);
+
       console.log('Serving from database');
-
-      return res.send(debtPostings);
+      res.status(200).json(paginatedResults);
     }
   } catch (error) {
-    console.error('Error fetching data:', error);
+    console.error('Error fetching paginated data:', error);
     res.status(500).send(error.message);
   }
 });
+
 
 router.get('/debts-owed-by/:userId', auth,async (req, res) => {
   try {
@@ -117,70 +171,6 @@ router.get('/debts-history/:userId', auth, async (req, res) => {
   }
 });
 
-
-
-// router.patch('/lend/:id', auth, async (req, res) => {
-//   try {
-//       const debtPosting = await DebtPosting.findById(req.params.id);
-
-//       // Check if the debt posting exists
-//       if (!debtPosting) {
-//           return res.status(404).send('Debt posting not found');
-//       }
-
-//       // Check if the user is trying to lend to their own posting
-//       if (debtPosting.borrower.toString() === req.user._id.toString()) {
-//           return res.status(400).send('Cannot lend to your own debt posting');
-//       }
-
-//       if (req.user.walletBalance < debtPosting.amount) {
-//         return res.status(400).send('Insufficient wallet balance to lend');
-//       }
-
-      
-
-
-//       // Proceed with lending
-//       debtPosting.lender = req.user._id; // Assuming req.user._id contains the lender's ID
-//       debtPosting.isFulfilled = true;
-//       await debtPosting.save();
-
-//       req.user.walletBalance -= debtPosting.amount; // Deduct amount from lender's wallet
-//       await req.user.save();
-
-//       const user = await User.findById(req.user._id);
-
-//       res.send({debtPosting,user});
-//   } catch (error) {
-//       res.status(400).send(error.message);
-//   }
-// });
-
-// router.patch('/lend/:id', auth, async (req, res) => {
-//   try {
-//       const debtPosting = await DebtPosting.findById(req.params.id);
-
-//       if (!debtPosting) {
-//           return res.status(404).send('Debt posting not found');
-//       }
-
-//       if (req.user.walletBalance < debtPosting.amount) {
-//           return res.status(400).send('Insufficient wallet balance to lend');
-//       }
-
-//       debtPosting.lender = req.user._id;
-//       debtPosting.isFulfilled = true;
-//       await debtPosting.save();
-
-//       req.user.walletBalance -= debtPosting.amount;
-//       await req.user.save();
-
-//       // Sending both the debt posting and the user's updated data
-//       res.send({ debtPosting, user: req.user });
-//   } catch (error) {
-//       res.status(400).send(error.message);
-//   }
-// });
 
 router.patch('/lend/:id', auth, async (req, res) => {
   try {
@@ -357,168 +347,6 @@ router.patch('/buy-debt/:debtId', auth, async (req, res) => {
   }
 });
 
-
-// Fetch transaction logs for the logged-in user
-// router.get('/transaction-logs', auth, async (req, res) => {
-//   try {
-//     const transactionLogs = await TransactionLog.find({ userId: req.user._id })
-//       .populate('receiverId', 'username') // Populate with necessary fields from the User model
-//       .sort({ createdAt: -1 }); // Assuming you have a createdAt field for sorting
-
-//     res.json(transactionLogs);
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// });
-//router.get('/transaction-logs', auth, async (req, res) => {
-  // try {
-  //   const transactionLogs = await TransactionLog.find({ userId: req.user._id })
-  //     .populate('receiverId', 'username') // Adjust the fields based on your User model
-  //     .sort({ date: -1 });
-
-  //   const formattedLogs = transactionLogs.map(log => ({
-  //     date: log.date,
-  //     amount: log.amount,
-  //     type: log.type,
-  //     otherParty: log.receiverId ? log.receiverId.username : 'N/A'
-  //   }));
-
-  //   res.json(formattedLogs);
-  // } catch (error) {
-  //   res.status(500).json({ message: error.message });
-  // }
-
-
-//   try {
-//     // Fetching logs where the user is either the initiator or the receiver
-//     const transactionLogs = await TransactionLog.find({
-//       $or: [{ userId: req.user._id }, { receiverId: req.user._id }]
-//     })
-//     .populate('userId receiverId', 'username') // Adjust fields based on your User model
-//     .sort({ date: -1 });
-
-//     // Format logs for a more user-friendly output
-//     const formattedLogs = transactionLogs.map(log => {
-//       let otherParty = log.userId.toString() === req.user._id.toString() ?
-//                        (log.receiverId ? log.receiverId.username : 'N/A') :
-//                        log.userId.username;
-
-//       // Determine the direction for the user
-//       let direction = log.userId.toString() === req.user._id.toString() ? log.direction : (log.direction === 'credit' ? 'debit' : 'credit');
-
-//       return {
-//         date: log.date,
-//         amount: log.amount,
-//         type: log.type,
-//         direction: direction,
-//         otherParty: otherParty
-//       };
-//     });
-
-//     res.json(formattedLogs);
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// });
-
-// router.get('/transaction-logs', auth, async (req, res) => {
-//   try {
-//     const transactionLogs = await TransactionLog.find({
-//       $or: [{ userId: req.user._id }, { receiverId: req.user._id }]
-//     })
-//     .populate('userId receiverId', 'username') // Ensure these fields match your User model
-//     .sort({ date: -1 });
-
-//     const formattedLogs = transactionLogs.map(log => {
-//       let otherParty = log.userId.toString() === req.user._id.toString() ?
-//                        (log.receiverId ? log.receiverId.username : 'N/A') :
-//                        log.userId.username;
-
-//       let direction = log.userId.toString() === req.user._id.toString() ? 
-//                       log.direction : 
-//                       (log.direction === 'credit' ? 'debit' : 'credit');
-
-//       return {
-//         date: log.date,
-//         amount: log.amount,
-//         type: log.type, // Ensure this is the correct field from your model
-//         direction: direction,
-//         otherParty: otherParty
-//       };
-//     });
-
-//     res.json(formattedLogs);
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// });
-
-
-
-// router.get('/transaction-logs', auth, async (req, res) => {
-//   try {
-//     // Fetching logs where the user is either the initiator or the receiver
-//     const transactionLogs = await TransactionLog.find({
-//       $or: [{ userId: req.user._id }, { receiverId: req.user._id }]
-//     })
-//     .populate('userId receiverId', 'username') // Adjust fields based on your User model
-//     .sort({ date: -1 });
-
-//     // Format logs for a more user-friendly output
-//     const formattedLogs = transactionLogs.map(log => {
-//       let otherParty = log.userId.toString() === req.user._id.toString() ?
-//                        (log.receiverId ? log.receiverId.username : 'N/A') :
-//                        log.userId.username;
-
-//       let direction = log.userId.toString() === req.user._id.toString() ? 
-//                       log.direction : 
-//                       (log.direction === 'credit' ? 'debit' : 'credit');
-
-//       return {
-//         date: log.date,
-//         amount: log.amount,
-//         type: log.type, // Ensure this is the correct field from your model
-//         direction: direction,
-//         otherParty: otherParty
-//       };
-//     });
-
-//     res.json(formattedLogs);
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// });
-
-
-// router.get('/transaction-logs', auth, async (req, res) => {
-//   try {
-//     // Fetching logs where the user is either the initiator or involved in the transaction
-//     const transactionLogs = await TransactionLog.find({
-//       $or: [{ userId: req.user._id }, { otherId: req.user._id }]
-//     })
-//     .populate('userId otherId', 'username') // Populate with user details
-//     .sort({ date: -1 });
-
-//     // Format logs for a user-friendly output
-//     const formattedLogs = transactionLogs.map(log => {
-//       let otherParty = log.userId.toString() === req.user._id.toString() ?
-//                        (log.otherId ? log.otherId.username : 'N/A') :
-//                        log.userId.username;
-
-//       return {
-//         date: log.date,
-//         amount: log.amount,
-//         type: log.type,
-//         direction: log.userId.toString() === req.user._id.toString() ? 'debit' : 'credit', // Direction relative to the user
-//         otherParty: otherParty
-//       };
-//     });
-
-//     res.json(formattedLogs);
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// });
 
 
 router.get('/transaction-logs', auth, async (req, res) => {
