@@ -81,28 +81,46 @@ const markCacheAsStale = async () => {
 //   }
 // });
 
+// router.post('/', async (req, res) => {
+//   try {
+//     const debtPosting = new DebtPosting({ ...req.body, borrower: req.user._id });
+//     await debtPosting.save();
+
+//     console.log('Marked cache as stale');
+
+//     await markCacheAsStale();
+//     console.log('Marked cache as stale-2');
+
+//     // Invalidate the cache for the first page of unfulfilled debt postings
+//     // const limit = 10; // Assuming the same limit as in your paginated GET route
+//     // const cacheKeyFirstPage = `unfulfilledDebtPostings_page:1_limit:${limit}`;
+//     // await cacheDel(cacheKeyFirstPage);
+
+//     // console.log(`Cache invalidated for ${cacheKeyFirstPage}`);
+//     res.status(201).send(debtPosting);
+//   } catch (error) {
+//     console.error('Error creating debt posting:', error);
+//     res.status(400).send(error.message);
+//   }
+// });
+
 router.post('/', async (req, res) => {
   try {
     const debtPosting = new DebtPosting({ ...req.body, borrower: req.user._id });
     await debtPosting.save();
 
-    console.log('Marked cache as stale');
+    // Invalidate the entire cache related to unfulfilled debt postings
+    // For simplicity, this example assumes you use a key pattern or a naming convention for cache entries
+    await cacheDel('unfulfilledDebtPostings_*');
 
-    await markCacheAsStale();
-    console.log('Marked cache as stale-2');
-
-    // Invalidate the cache for the first page of unfulfilled debt postings
-    // const limit = 10; // Assuming the same limit as in your paginated GET route
-    // const cacheKeyFirstPage = `unfulfilledDebtPostings_page:1_limit:${limit}`;
-    // await cacheDel(cacheKeyFirstPage);
-
-    // console.log(`Cache invalidated for ${cacheKeyFirstPage}`);
+    console.log('Cache invalidated for unfulfilled debt postings');
     res.status(201).send(debtPosting);
   } catch (error) {
     console.error('Error creating debt posting:', error);
     res.status(400).send(error.message);
   }
 });
+
 
 
 
@@ -139,37 +157,71 @@ router.get('/', async (req, res) => {
   const skipIndex = (page - 1) * limit;
   const cacheKey = `unfulfilledDebtPostings_page:${page}_limit:${limit}`;
 
-  // Check if the data for this page is marked as stale
-  const isStaleKey = 'unfulfilledDebtPostings_stale';
-  const isStale = await redisClient.get(isStaleKey) === 'true';
+  let cachedDebtPostings = await cacheGet(cacheKey);
 
-  if (isStale || !(await cacheGet(cacheKey))) {
-    // Fetch fresh data from DB if cache is stale or not present
+  if (!cachedDebtPostings) {
+    // Cache miss, fetch data from the database
     const [results, totalCount] = await Promise.all([
-      DebtPosting.find({ isFulfilled: false }).sort({ createdAt: -1 }).skip(skipIndex).limit(limit).populate('borrower', 'username'),
+      DebtPosting.find({ isFulfilled: false })
+        .sort({ createdAt: -1 })
+        .skip(skipIndex)
+        .limit(limit)
+        .populate('borrower', 'username'), // Adjust based on your schema
       DebtPosting.countDocuments({ isFulfilled: false })
     ]);
 
     const totalPages = Math.ceil(totalCount / limit);
-    const paginatedResults = { data: results, page, limit, totalPages, totalCount };
+    const response = { data: results, page, limit, totalPages, totalCount };
 
-    // Update cache with fresh data
-    await cacheSet(cacheKey, paginatedResults);
-
-    // Reset the stale marker only if refreshing the first page
-    if (page === 1) {
-      await redisClient.set(isStaleKey, 'false');
-      console.log('Cache refreshed and stale marker reset');
-    }
-
-    res.status(200).json(paginatedResults);
+    // Update the cache with the new data
+    await cacheSet(cacheKey, response);
+    console.log('Serving from database and updating cache');
+    res.status(200).json(response);
   } else {
-    // Serve data from cache if it's not marked as stale
-    const cachedData = await cacheGet(cacheKey);
+    // Serve from cache
     console.log('Serving from cache');
-    res.status(200).json(cachedData);
+    res.status(200).json(cachedDebtPostings);
   }
 });
+
+
+// router.get('/', async (req, res) => {
+//   const page = parseInt(req.query.page, 10) || 1;
+//   const limit = parseInt(req.query.limit, 10) || 10;
+//   const skipIndex = (page - 1) * limit;
+//   const cacheKey = `unfulfilledDebtPostings_page:${page}_limit:${limit}`;
+
+//   // Check if the data for this page is marked as stale
+//   const isStaleKey = 'unfulfilledDebtPostings_stale';
+//   const isStale = await redisClient.get(isStaleKey) === 'true';
+
+//   if (isStale || !(await cacheGet(cacheKey))) {
+//     // Fetch fresh data from DB if cache is stale or not present
+//     const [results, totalCount] = await Promise.all([
+//       DebtPosting.find({ isFulfilled: false }).sort({ createdAt: -1 }).skip(skipIndex).limit(limit).populate('borrower', 'username'),
+//       DebtPosting.countDocuments({ isFulfilled: false })
+//     ]);
+
+//     const totalPages = Math.ceil(totalCount / limit);
+//     const paginatedResults = { data: results, page, limit, totalPages, totalCount };
+
+//     // Update cache with fresh data
+//     await cacheSet(cacheKey, paginatedResults);
+
+//     // Reset the stale marker only if refreshing the first page
+//     if (page === 1) {
+//       await redisClient.set(isStaleKey, 'false');
+//       console.log('Cache refreshed and stale marker reset');
+//     }
+
+//     res.status(200).json(paginatedResults);
+//   } else {
+//     // Serve data from cache if it's not marked as stale
+//     const cachedData = await cacheGet(cacheKey);
+//     console.log('Serving from cache');
+//     res.status(200).json(cachedData);
+//   }
+// });
 
 
 
