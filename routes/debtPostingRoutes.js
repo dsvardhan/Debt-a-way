@@ -23,6 +23,10 @@ async function cacheSet(key, value, ttl = 3600) {
   });
 }
 
+const markCacheAsStale = async () => {
+  await redisClient.set('unfulfilledDebtPostings_stale', 'true');
+};
+
 // Post a new debt
 // router.post('/', async (req, res) => {
 //   try {
@@ -82,12 +86,15 @@ router.post('/', async (req, res) => {
     const debtPosting = new DebtPosting({ ...req.body, borrower: req.user._id });
     await debtPosting.save();
 
-    // Invalidate the cache for the first page of unfulfilled debt postings
-    const limit = 10; // Assuming the same limit as in your paginated GET route
-    const cacheKeyFirstPage = `unfulfilledDebtPostings_page:1_limit:${limit}`;
-    await cacheDel(cacheKeyFirstPage);
+    await markCacheAsStale();
+    console.log('Marked cache as stale');
 
-    console.log(`Cache invalidated for ${cacheKeyFirstPage}`);
+    // Invalidate the cache for the first page of unfulfilled debt postings
+    // const limit = 10; // Assuming the same limit as in your paginated GET route
+    // const cacheKeyFirstPage = `unfulfilledDebtPostings_page:1_limit:${limit}`;
+    // await cacheDel(cacheKeyFirstPage);
+
+    // console.log(`Cache invalidated for ${cacheKeyFirstPage}`);
     res.status(201).send(debtPosting);
   } catch (error) {
     console.error('Error creating debt posting:', error);
@@ -125,48 +132,81 @@ router.post('/', async (req, res) => {
 // });
 
 // Updated GET route with pagination
+// router.get('/', async (req, res) => {
+//   // Default values if not provided
+//   const page = parseInt(req.query.page, 10) || 1;
+//   const limit = parseInt(req.query.limit, 10) || 10;
+//   const skipIndex = (page - 1) * limit;
+
+//   const cacheKey = `unfulfilledDebtPostings_page:${page}_limit:${limit}`;
+
+//   try {
+//     let cachedDebtPostings = await cacheGet(cacheKey);
+
+//     if (cachedDebtPostings) {
+//       console.log('Serving from cache');
+//       res.status(200).json(cachedDebtPostings);
+//     } else {
+//       const [results, totalCount] = await Promise.all([
+//         DebtPosting.find({ isFulfilled: false })
+//           .sort({ createdAt: -1 }) // Assuming you want the newest first; adjust as needed.
+//           .skip(skipIndex)
+//           .limit(limit)
+//           .populate('borrower', 'username'), // Modify as needed based on your User model
+//         DebtPosting.countDocuments({ isFulfilled: false })
+//       ]);
+
+//       const totalPages = Math.ceil(totalCount / limit);
+
+//       const paginatedResults = {
+//         data: results,
+//         page,
+//         limit,
+//         totalPages,
+//         totalCount,
+//       };
+
+//       await cacheSet(cacheKey, paginatedResults);
+
+//       console.log('Serving from database');
+//       res.status(200).json(paginatedResults);
+//     }
+//   } catch (error) {
+//     console.error('Error fetching paginated data:', error);
+//     res.status(500).send(error.message);
+//   }
+// });
+
+
+// In your GET operation for paginated results
 router.get('/', async (req, res) => {
-  // Default values if not provided
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
   const skipIndex = (page - 1) * limit;
-
   const cacheKey = `unfulfilledDebtPostings_page:${page}_limit:${limit}`;
+  const isStale = await redisClient.get('unfulfilledDebtPostings_stale');
 
-  try {
-    let cachedDebtPostings = await cacheGet(cacheKey);
+  if (isStale === 'true' || !(await cacheGet(cacheKey))) {
+    // Cache is stale or missing; fetch fresh data and update cache
+    const [results, totalCount] = await Promise.all([
+      DebtPosting.find({ isFulfilled: false }).sort({ createdAt: -1 }).skip(skipIndex).limit(limit).populate('borrower', 'username'),
+      DebtPosting.countDocuments({ isFulfilled: false })
+    ]);
 
-    if (cachedDebtPostings) {
-      console.log('Serving from cache');
-      res.status(200).json(cachedDebtPostings);
-    } else {
-      const [results, totalCount] = await Promise.all([
-        DebtPosting.find({ isFulfilled: false })
-          .sort({ createdAt: -1 }) // Assuming you want the newest first; adjust as needed.
-          .skip(skipIndex)
-          .limit(limit)
-          .populate('borrower', 'username'), // Modify as needed based on your User model
-        DebtPosting.countDocuments({ isFulfilled: false })
-      ]);
-
-      const totalPages = Math.ceil(totalCount / limit);
-
-      const paginatedResults = {
-        data: results,
-        page,
-        limit,
-        totalPages,
-        totalCount,
-      };
-
-      await cacheSet(cacheKey, paginatedResults);
-
-      console.log('Serving from database');
-      res.status(200).json(paginatedResults);
+    const totalPages = Math.ceil(totalCount / limit);
+    const paginatedResults = { data: results, page, limit, totalPages, totalCount };
+    await cacheSet(cacheKey, paginatedResults);
+    if (page === 1) {
+      // Reset stale marker only after refreshing the first page
+      await redisClient.set('unfulfilledDebtPostings_stale', 'false');
     }
-  } catch (error) {
-    console.error('Error fetching paginated data:', error);
-    res.status(500).send(error.message);
+    console.log('Cache was stale. Serving fresh data and updating cache.');
+    res.status(200).json(paginatedResults);
+  } else {
+    // Serve from cache
+    const cachedData = await cacheGet(cacheKey);
+    console.log('Serving from cache');
+    res.status(200).json(cachedData);
   }
 });
 
