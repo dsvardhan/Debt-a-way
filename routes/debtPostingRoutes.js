@@ -86,8 +86,10 @@ router.post('/', async (req, res) => {
     const debtPosting = new DebtPosting({ ...req.body, borrower: req.user._id });
     await debtPosting.save();
 
-    await markCacheAsStale();
     console.log('Marked cache as stale');
+
+    await markCacheAsStale();
+    console.log('Marked cache as stale-2');
 
     // Invalidate the cache for the first page of unfulfilled debt postings
     // const limit = 10; // Assuming the same limit as in your paginated GET route
