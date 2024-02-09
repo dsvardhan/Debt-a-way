@@ -8,64 +8,56 @@ const TransactionLog = require('../models/TransactionLog'); // Update the path a
 const redisClient = require('../utils/redisClient');
 
 // Utility functions for Redis operations using async/await
-async function cacheDel(key) {
-  await redisClient.del(key);
-}
-
+// Utility functions for Redis operations
 async function cacheGet(key) {
   const data = await redisClient.get(key);
   return data ? JSON.parse(data) : null;
 }
 
 async function cacheSet(key, value, ttl = 3600) {
-  await redisClient.set(key, JSON.stringify(value), {
-    EX: ttl // Sets expiration time (default 1 hour)
-  });
+  await redisClient.set(key, JSON.stringify(value), 'EX', ttl);
 }
 
 router.get('/', async (req, res) => {
-  const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
-  let skipIndex = (page - 1) * limit;
-
-  // Adjusting for recent debts if requesting beyond the first page
-  if (page > 1) {
-    const recentDebts = await cacheGet('recentDebts') || [];
-    const extraSkip = recentDebts.length; // Adjust based on the number of items in your recent cache
-    skipIndex += extraSkip; // Adjust the skip index to account for recent debts
+  const lastId = req.query.lastId; // ID of the last item seen by the user
+  const page = parseInt(req.query.page, 10) || 1;
+  let cacheKey = `debtPostings:page:${page}`;
+  if (lastId) {
+    cacheKey += `:lastId:${lastId}`;
   }
 
-  // Continue with fetching debts from the database as before
-  const [results, totalCount] = await Promise.all([
-    DebtPosting.find({ isFulfilled: false })
-      .sort({ createdAt: -1 })
-      .skip(skipIndex)
-      .limit(limit)
-      .populate('borrower', 'username'),
-    DebtPosting.countDocuments({ isFulfilled: false })
-  ]);
+  // Try to retrieve cached data
+  let cachedData = await cacheGet(cacheKey);
+  if (cachedData) {
+    return res.status(200).json(cachedData);
+  }
 
-  const totalPages = Math.ceil(totalCount / limit);
-  const response = { data: results, page, limit, totalPages, totalCount };
+  // Build the query based on lastId for dynamic pagination
+  let query = { isFulfilled: false };
+  if (lastId) {
+    query._id = { $lt: lastId };
+  }
 
-  console.log('Serving from database');
-  res.status(200).json(response);
+  const results = await DebtPosting.find(query)
+    .sort({ _id: -1 })
+    .limit(limit);
+
+  // Cache the results before returning
+  await cacheSet(cacheKey, results);
+
+  res.status(200).json(results);
 });
 
 
-// When posting a new debt
 router.post('/', async (req, res) => {
   try {
     const debtPosting = new DebtPosting({ ...req.body, borrower: req.user._id });
     await debtPosting.save();
 
-    // Assuming you have a cache for the most recent debts
-    const recentDebts = await cacheGet('recentDebts') || [];
-    recentDebts.unshift(debtPosting); // Add the new debt at the beginning of the array
-    if (recentDebts.length > 10) { // Assuming you want to keep only the 10 most recent debts in this cache
-      recentDebts.pop(); // Remove the oldest debt if the cache exceeds 10 items
-    }
-    await cacheSet('recentDebts', recentDebts); // Update the cache
+    // Optionally invalidate cache for the first page or update it to include this new debt
+    // For simplicity, here we'll just invalidate the first page's cache
+    await redisClient.del('debtPostings:page:1');
 
     res.status(201).send(debtPosting);
   } catch (error) {
